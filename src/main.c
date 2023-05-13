@@ -187,6 +187,7 @@ static void l_hook(lua_State* L, lua_Debug* d)
   {
     if (SDL_GetTicks64() > currentTimeout)
     {
+      puts("[C] Too long without yielding");
       longjmp(kill, 1);
     }
   }
