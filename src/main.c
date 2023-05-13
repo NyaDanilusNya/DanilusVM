@@ -155,7 +155,7 @@ int lf_getused(lua_State* L)
   return 1;
 }
 
-int lf_pollevent(lua_State* L)
+int lf_pullevent(lua_State* L)
 {
   while (1)
   {
@@ -262,7 +262,8 @@ static const luaL_Reg computerlib[] =
 {
   {"getTotal", lf_gettotal},
   {"getUsed", lf_getused},
-  {"pollEvent", lf_pollevent}
+  {"pullEvent", lf_pullevent},
+  {NULL, NULL}
 };
 
 int luaopen_computer (lua_State *L) {
