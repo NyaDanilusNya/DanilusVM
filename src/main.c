@@ -10,18 +10,22 @@
 
 #define DISABLE_PRINT 0
 
-SDL_Window* win = NULL;
-SDL_Renderer* ren = NULL;
-SDL_Texture* tex = NULL;
-SDL_Event event;
-bool lowMemory = false;
-const int MAX_SIZE = 1; // in MiB
-lua_State* L;
-uint64_t* ud;
-const char* FSName = "./FS";
-const uint16_t WIN_W = 800, WIN_H = 600;
-d_Canvas* can;
-uint32_t currentColor;
+static SDL_Window* win = NULL;
+static SDL_Renderer* ren = NULL;
+static SDL_Texture* tex = NULL;
+static SDL_Event event;
+static lua_State* L;
+static d_Canvas* can;
+static uint32_t currentColor;
+static bool lowMemory = false;
+static uint64_t* ud;
+static uint64_t currentTimeout;
+static const int MAX_SIZE = 1; // RAM in MiB
+//static const char* FSName = "./FS";
+static const uint16_t WIN_W = 800, WIN_H = 600;
+static const SDL_Rect TEX_RECT = {0,0,WIN_W, WIN_H};
+static const uint32_t CPU_HZ = 10;
+static const uint64_t KILL_TIMEOUT = 10*1000; // 10 seconds
 
 jmp_buf kill;
 
@@ -71,7 +75,13 @@ void RendClear()
   SDL_RenderPresent(ren);
 }
 
-static void* l_alloc (void *ud, void *ptr, size_t osize, size_t nsize)
+void RendUpdate()
+{
+  SDL_RenderCopy(ren, tex, &TEX_RECT, &TEX_RECT);
+  SDL_RenderPresent(ren);
+}
+
+static void* l_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
 {
   uint64_t *used = (uint64_t*)ud;
 
@@ -116,6 +126,21 @@ static void* l_alloc (void *ud, void *ptr, size_t osize, size_t nsize)
   }
 }
 
+static void l_callhook(/*lua_State* L, lua_Debug* ar*/)
+{
+  currentTimeout = SDL_GetTicks64() + KILL_TIMEOUT;
+  SDL_Delay(1000/CPU_HZ);
+}
+
+static void l_counthook()
+{
+  if (SDL_GetTicks64() > currentTimeout)
+  {
+    puts("[C] Too long without yielding (10s)");
+    longjmp(kill, 1);
+  }
+}
+
 // -------------- function -------------- //
 
 int lf_gettotal(lua_State* L)
@@ -140,11 +165,9 @@ int lf_pollevent(lua_State* L)
       case SDL_QUIT:
         longjmp(kill, 1);
         break;
-      /*
       case SDL_WINDOWEVENT:
-        RendClear();
+        RendUpdate();
         break;
-      */
       case SDL_KEYDOWN:
         lua_pushstring(L, "keydown");
         lua_pushnumber(L, event.key.keysym.scancode);
@@ -159,7 +182,7 @@ int lf_pollevent(lua_State* L)
   return 0;
 }
 
-// GUI //
+// GPU //
 int lf_gpusetcolor(lua_State* L)
 {
   lua_Number col = lua_tonumber(L, -1);
@@ -179,7 +202,7 @@ int lf_gpugetpixel(lua_State* L)
   lua_Number fx = lua_tonumber(L, -2);
   lua_Number fy = lua_tonumber(L, -1);
 
-  lua_pushnumber(L, d_getPixel(can, fx, fy));
+  lua_pushnumber(L, d_getPixel(can, fx-1, fy-1));
 
   return 1;
 }
@@ -191,7 +214,7 @@ int lf_gpufill(lua_State* L)
   lua_Number fw = lua_tonumber(L, -2);
   lua_Number fh = lua_tonumber(L, -1);
 
-  d_rect(can, fx, fy, fw, fh, currentColor);
+  d_rect(can, fx-1, fy-1, fw, fh, currentColor);
 
   return 0;
 }
@@ -205,7 +228,7 @@ int lf_gpucopy(lua_State* L)
   lua_Number fox = lua_tonumber(L, -2);
   lua_Number foy = lua_tonumber(L, -1);
 
-  d_copy(can, fx, fy, fw, fh, fox, foy);
+  d_copy(can, fx-1, fy-1, fw, fh, fox, foy);
 
   return 0;
 }
@@ -221,14 +244,13 @@ int lf_gpuupdate()
 {
   void *pixels;
   int pitch;
-  SDL_Rect texrect = {0,0,WIN_W, WIN_H};
-  SDL_LockTexture(tex, &texrect, &pixels, &pitch);
+  SDL_LockTexture(tex, &TEX_RECT, &pixels, &pitch);
   for (size_t y = 0; y < WIN_H; ++y) {
     memcpy((char*)pixels + y*pitch, can->pixels + y*WIN_W, WIN_W*sizeof(uint32_t));
   }
   SDL_UnlockTexture(tex);
 
-  SDL_RenderCopy(ren, tex, &texrect, &texrect);
+  SDL_RenderCopy(ren, tex, &TEX_RECT, &TEX_RECT);
   SDL_RenderPresent(ren);
 
   return 0;
@@ -325,20 +347,6 @@ int main()
   // load specific lua libs
   openlibs(L);
 
-  //load special functions
-  /*
-  lua_pushcfunction(L, lf_getTotal);
-  lua_setglobal(L, "getTotal");
-  lua_pushcfunction(L, lf_getUsed);
-  lua_setglobal(L, "getUsed");
-  lua_pushcfunction(L, lf_pollevent);
-  lua_setglobal(L, "pollEvent");
-  lua_pushcfunction(L, lf_gpufill);
-  lua_setglobal(L, "guiFill");
-  lua_pushcfunction(L, lf_gpuupdate);
-  lua_setglobal(L, "guiUpdate");
-  */
-
   if (DISABLE_PRINT == 1)
   {
     lua_pushnil(L);
@@ -347,9 +355,12 @@ int main()
 
   SDL_SetWindowResizable(win, SDL_FALSE);
   SDL_ShowCursor(SDL_DISABLE);
+  lua_sethook(L, l_callhook, LUA_MASKCALL, 0);
+  lua_sethook(L, l_counthook, LUA_MASKCOUNT, 1000);
   RendClear();
 
 
+  currentTimeout = SDL_GetTicks64() + KILL_TIMEOUT;
   if (setjmp(kill) == 0)
     luaL_dofile(L, "./FS/init.lua");
 

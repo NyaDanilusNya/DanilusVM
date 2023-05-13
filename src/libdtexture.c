@@ -15,6 +15,9 @@ d_Canvas* d_newCanvas(uint16_t width, uint16_t height)
 
 void d_setpixel(d_Canvas* canvas, int x, int y, uint32_t color)
 {
+  // -1 cause we need a pixel from the array, not the resolution
+  if (x < 0 || y < 0 || x > canvas->width-1 || y > canvas->height-1)
+    return;
   canvas->pixels[canvas->width*y+x] = color;
 }
 
@@ -35,7 +38,12 @@ void d_rect(d_Canvas* canvas, int x, int y, int w, int h, uint32_t color)
   {
     for (int ih = 0; ih < h; ih++)
     {
-      d_setpixel(canvas, x+iw, y+ih, color);
+      /*if (x+w > canvas->width)
+        d_setpixel(canvas, canvas->width, y+ih, color);
+      else if (y+h > canvas->height)
+        d_setpixel(canvas, x+iw, canvas->height, color);
+      else */
+        d_setpixel(canvas, x+iw, y+ih, color);
     }
   }
 }
@@ -57,8 +65,9 @@ void d_copy(d_Canvas* canvas, int x, int y, int w, int h, int xoffset, int yoffs
   {
     for (int ih = 0; ih < h; ih++)
     {
-      if (xoffset+x+iw < 0 && xoffset+x+iw > canvas->width && yoffset+y+ih < 0 && yoffset+y+ih > canvas->height)
-        continue;
+      // \/ stupid thing
+      /*if (xoffset+x+iw < 0 || xoffset+x+iw > canvas->width || yoffset+y+ih < 0 || yoffset+y+ih > canvas->height)
+        continue;*/
 
       d_setpixel(canvas, x+iw+xoffset, y+ih+yoffset, d_getPixel(canvas, x+iw, y+ih));
     }
