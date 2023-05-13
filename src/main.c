@@ -7,6 +7,7 @@
 #include <lua5.2/lauxlib.h>
 #include <SDL2/SDL.h>
 #include "../include/dtexture.h"
+#include "../include/event_queue.h"
 
 #define DISABLE_PRINT 0
 
@@ -26,10 +27,11 @@ static const uint16_t WIN_W = 800, WIN_H = 600;
 static const SDL_Rect TEX_RECT = {0,0,WIN_W, WIN_H};
 static const uint32_t CPU_HZ = 10;
 static const uint64_t KILL_TIMEOUT = 10*1000; // 10 seconds
+static queue_t event_queue;
 
 jmp_buf kill;
 
-void DeInitAll(int err)
+static void DeInitAll(int err)
 {
   if (tex != NULL) SDL_DestroyTexture(tex);
   if (ren != NULL) SDL_DestroyRenderer(ren);
@@ -38,7 +40,7 @@ void DeInitAll(int err)
   exit(err);
 }
 
-void InitAll()
+static void InitAll()
 {
   if (SDL_Init(SDL_INIT_VIDEO) != 0)
   {
@@ -68,17 +70,64 @@ void InitAll()
   }
 }
 
-void RendClear()
+static void RendClear()
 {
   SDL_SetRenderDrawColor(ren, 0,0,0,0);
   SDL_RenderClear(ren);
   SDL_RenderPresent(ren);
 }
 
-void RendUpdate()
+static void RendUpdate()
 {
   SDL_RenderCopy(ren, tex, &TEX_RECT, &TEX_RECT);
   SDL_RenderPresent(ren);
+}
+
+static char* int2str(uint64_t val)
+{
+  char* str = malloc((int)((ceil(log10(val+1))+1)*sizeof(char)));
+  sprintf(str, "%ld", val);
+  return str;
+}
+
+static bool getEvent(int timeout)
+{
+  event_args_t ea;
+  uint64_t end = SDL_GetTicks64() + timeout;
+  while (end > SDL_GetTicks64())
+  {
+    SDL_PollEvent(&event);
+    switch (event.type)
+    {
+      case SDL_QUIT:
+        longjmp(kill, 1);
+        break;
+      case SDL_WINDOWEVENT:
+        RendUpdate();
+        break;
+      case SDL_KEYDOWN:
+        ea.arg[0] = "keydown";
+        ea.arg[1] = int2str(event.key.keysym.scancode);
+        ea.len = 2;
+        queue_push(&event_queue, ea);
+        return true;
+        /*
+        lua_pushstring(L, "keydown");
+        lua_pushnumber(L, event.key.keysym.scancode);
+        */
+      case SDL_KEYUP:
+        ea.arg[0] = "keydup";
+        ea.arg[1] = int2str(event.key.keysym.scancode);
+        ea.len = 2;
+        queue_push(&event_queue, ea);
+        return true;
+        /*
+        lua_pushstring(L, "keyup");
+        lua_pushnumber(L, event.key.keysym.scancode);
+        */
+    }
+  }
+  return false;
 }
 
 static void* l_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
@@ -126,18 +175,20 @@ static void* l_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
   }
 }
 
-static void l_callhook(/*lua_State* L, lua_Debug* ar*/)
+static void l_hook(lua_State* L, lua_Debug* d)
 {
-  currentTimeout = SDL_GetTicks64() + KILL_TIMEOUT;
-  SDL_Delay(1000/CPU_HZ);
-}
-
-static void l_counthook()
-{
-  if (SDL_GetTicks64() > currentTimeout)
+  if (d->event == 0)
   {
-    puts("[C] Too long without yielding (10s)");
-    longjmp(kill, 1);
+    getEvent(1);
+    currentTimeout = SDL_GetTicks64() + KILL_TIMEOUT;
+    SDL_Delay(1000/CPU_HZ);
+  }
+  else if (d->event == 3)
+  {
+    if (SDL_GetTicks64() > currentTimeout)
+    {
+      longjmp(kill, 1);
+    }
   }
 }
 
@@ -157,35 +208,46 @@ int lf_getused(lua_State* L)
 
 int lf_pullevent(lua_State* L)
 {
-  while (1)
+  lua_Number arg = luaL_checknumber(L, 1);
+  if (event_queue.length == 0)
   {
-    SDL_PollEvent(&event);
-    switch (event.type)
+    if(!getEvent(arg))
+      return 0;
+  }
+
+  event_args_t e = queue_pop(&event_queue);
+  for (int i = 0; i < e.len; i++)
+  {
+    lua_pushstring(L, e.arg[i]);
+  }
+  return e.len;
+  return 0;
+}
+
+int lf_pushevent(lua_State* L)
+{
+  event_args_t ea;
+  for (int i = 0; i < 8; i++)
+  {
+    if (lua_isstring(L, i+1))
     {
-      case SDL_QUIT:
-        longjmp(kill, 1);
-        break;
-      case SDL_WINDOWEVENT:
-        RendUpdate();
-        break;
-      case SDL_KEYDOWN:
-        lua_pushstring(L, "keydown");
-        lua_pushnumber(L, event.key.keysym.scancode);
-        return 2;
-      case SDL_KEYUP:
-        lua_pushstring(L, "keyup");
-        lua_pushnumber(L, event.key.keysym.scancode);
-        return 2;
+      ea.arg[i] = lua_tostring(L, i+1);
+    }
+    else
+    {
+      ea.len = i;
+      break;
     }
   }
-  longjmp(kill, 1);
+  if (ea.len > 0)
+    queue_push(&event_queue, ea);
   return 0;
 }
 
 // GPU //
 int lf_gpusetcolor(lua_State* L)
 {
-  lua_Number col = lua_tonumber(L, -1);
+  lua_Number col = luaL_checknumber(L, -1);
   currentColor = col;
 
   return 0;
@@ -199,37 +261,36 @@ int lf_gpugetcolor(lua_State* L)
 
 int lf_gpugetpixel(lua_State* L)
 {
-  lua_Number fx = lua_tonumber(L, -2);
-  lua_Number fy = lua_tonumber(L, -1);
+  lua_Number fx = luaL_checknumber(L, -2);
+  lua_Number fy = luaL_checknumber(L, -1);
 
   lua_pushnumber(L, d_getPixel(can, fx-1, fy-1));
 
   return 1;
 }
 
+
 int lf_gpufill(lua_State* L)
 {
-  lua_Number fx = lua_tonumber(L, -4);
-  lua_Number fy = lua_tonumber(L, -3);
-  lua_Number fw = lua_tonumber(L, -2);
-  lua_Number fh = lua_tonumber(L, -1);
+  lua_Number fx = luaL_checknumber(L, -4);
+  lua_Number fy = luaL_checknumber(L, -3);
+  lua_Number fw = luaL_checknumber(L, -2);
+  lua_Number fh = luaL_checknumber(L, -1);
 
   d_rect(can, fx-1, fy-1, fw, fh, currentColor);
-
   return 0;
 }
 
 int lf_gpucopy(lua_State* L)
 {
-  lua_Number fx =  lua_tonumber(L, -6);
-  lua_Number fy =  lua_tonumber(L, -5);
-  lua_Number fw =  lua_tonumber(L, -4);
-  lua_Number fh =  lua_tonumber(L, -3);
-  lua_Number fox = lua_tonumber(L, -2);
-  lua_Number foy = lua_tonumber(L, -1);
+  lua_Number fx =  luaL_checknumber(L, -6);
+  lua_Number fy =  luaL_checknumber(L, -5);
+  lua_Number fw =  luaL_checknumber(L, -4);
+  lua_Number fh =  luaL_checknumber(L, -3);
+  lua_Number fox = luaL_checknumber(L, -2);
+  lua_Number foy = luaL_checknumber(L, -1);
 
   d_copy(can, fx-1, fy-1, fw, fh, fox, foy);
-
   return 0;
 }
 
@@ -256,6 +317,20 @@ int lf_gpuupdate()
   return 0;
 }
 
+// Modifications //
+
+int lf_corocreate(lua_State* L)
+{
+  puts("[C] Coro create e");
+  lua_State* NL;
+  luaL_checktype(L, 1, LUA_TFUNCTION);
+  NL = lua_newthread(L);
+  lua_pushvalue(L, 1);
+  lua_xmove(L, NL, 1);
+  lua_sethook(NL, l_hook, LUA_MASKCOUNT | LUA_MASKCALL, 1000);
+  return 1;
+}
+
 // -------------------------------------- //
 
 static const luaL_Reg computerlib[] =
@@ -263,6 +338,7 @@ static const luaL_Reg computerlib[] =
   {"getTotal", lf_gettotal},
   {"getUsed", lf_getused},
   {"pullEvent", lf_pullevent},
+  {"pushEvent", lf_pushevent},
   {NULL, NULL}
 };
 
@@ -295,11 +371,11 @@ static const luaL_Reg loadedlibs[] =
   {LUA_COLIBNAME, luaopen_coroutine},
   {LUA_TABLIBNAME, luaopen_table},
   //{LUA_IOLIBNAME, luaopen_io},
-  //{LUA_OSLIBNAME, luaopen_os},
+  {LUA_OSLIBNAME, luaopen_os},
   {LUA_STRLIBNAME, luaopen_string},
   {LUA_BITLIBNAME, luaopen_bit32},
   {LUA_MATHLIBNAME, luaopen_math},
-  //{LUA_DBLIBNAME, luaopen_debug},
+  {LUA_DBLIBNAME, luaopen_debug},
   {"computer", luaopen_computer},
   {"gpu", luaopen_gpu},
   {NULL, NULL}
@@ -353,12 +429,15 @@ int main()
     lua_pushnil(L);
     lua_setglobal(L, "print");
   }
+  lua_getglobal(L, "coroutine");
+  lua_pushcfunction(L, lf_corocreate);
+  lua_setfield(L, -2, "create");
+  lua_setglobal(L, "coroutine");
 
   SDL_SetWindowResizable(win, SDL_FALSE);
   SDL_ShowCursor(SDL_DISABLE);
-  lua_sethook(L, l_callhook, LUA_MASKCALL, 0);
-  lua_sethook(L, l_counthook, LUA_MASKCOUNT, 1000);
   RendClear();
+  lua_sethook(L, l_hook, LUA_MASKCOUNT | LUA_MASKCALL, 1000);
 
 
   currentTimeout = SDL_GetTicks64() + KILL_TIMEOUT;
@@ -371,3 +450,4 @@ int main()
   DeInitAll(0);
   return 0;
 }
+
