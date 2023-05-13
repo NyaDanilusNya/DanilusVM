@@ -8,7 +8,7 @@ all:
 	$(CC) -o $(OUT) $(IN) $(CFLAGS) $(LIBS)
 
 run:
-	cd bin && ./main cd ..
+	cd bin && ./main; cd ..
 g:
-	cd bin && gdb ./main cd ..
+	cd bin && gdb ./main; cd ..
 
