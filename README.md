@@ -68,13 +68,17 @@ $ make run
 
 `computer.getUsed() -> number` - returns the amount of used RAM
 
-`computer.pullEvent() -> ...` - retrieves information about an event by taking it from the event queue
+`computer.pushEvent(...) -> nil` - accepts any numbers and strings, creates an event and adds to the queue
 
-- `keydown -> "keydown", number` - returns the event name and scancode. Triggered when a key is pressed on the keyboard
+`computer.pullEvent() -> ...` - retrieves information about an event by taking it from the event queue (returns all values ​​as a string!)
 
-- `keyup -> "keyup", number` - returns the event name and scancode. Triggered when a key is released on the keyboard 
+- `keydown -> "keydown", string` - returns the event name and scancode. Triggered when a key is pressed on the keyboard
+
+- `keyup -> "keyup", string` - returns the event name and scancode. Triggered when a key is released on the keyboard 
 
 - (Yes, that's all for now :)
+
+
 
 ---
 
