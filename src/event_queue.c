@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "../include/event_queue.h"
+#include "event_queue.h"
 
 void queue_push(queue_t *q, event_args_t val) {
   ++q->length;

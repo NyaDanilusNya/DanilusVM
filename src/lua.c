@@ -1,29 +1,83 @@
+#include <lua5.2/lua.h>
+#include <lua5.2/lualib.h>
+#include <lua5.2/lauxlib.h>
+#include <SDL2/SDL.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include "dtexture.h"
+#include <setjmp.h>
 #include "event_queue.h"
 #include "lua.h"
 #include "utils.h"
+#include "dtexture.h"
+#include "sdl.h"
 
 #define DISABLE_PRINT 0
 
+static uint64_t* pUd;
+static lua_State* L = NULL;
+static uint32_t currentColor;
+static uint64_t currentTimeout;
+static const int MAX_SIZE = 1; // RAM in MiB
+static bool lowMemory = false;
+static const uint64_t KILL_TIMEOUT = 10*1000; // 10 seconds
+static const uint32_t CPU_HZ = 10;
+static SDL_Event event;
+static queue_t event_queue;
+static d_Canvas* pCan;
 
+jmp_buf kill;
 
-int
-main()
+static void*
+l_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
 {
-  ut_InitAll();
+  uint64_t *used = (uint64_t*)ud;
 
-  lua_Start();
+  if(ptr == NULL)
+  {
+    osize = 0;
+  }
 
-  ut_DeInitAll(0);
-  return 0;
+  if (nsize == 0)
+  {
+    free(ptr);
+    *used -= osize;
+    if (*used < 1024*1024*MAX_SIZE-512)
+      lowMemory = false;
+    return NULL;
+  }
+  else
+  {
+    if (*used + (nsize - osize) > 1024*1024*MAX_SIZE)
+    {
+      puts("[critical] Memory out!");
+      lua_yield(L, 0);
+      //exit(1);
+    }
+    if (*used + (nsize - osize) > 1024*1024*MAX_SIZE-512)
+    {
+      if (lowMemory == false)
+      {
+        puts("[warn] low memory");
+        lowMemory = true;
+        luaL_error(L, "low mem");
+      }
+    }
+    ptr = realloc(ptr, nsize);
+    if (ptr)
+      *used += (nsize - osize);
+
+    if (*used < 1024*1024*MAX_SIZE-512)
+      lowMemory = false;
+
+    return ptr;
+  }
 }
 
 
-/*
-static bool GetEvent(int timeout)
+static bool
+GetEvent(int timeout)
 {
   event_args_t ea;
   uint64_t end = SDL_GetTicks64() + timeout;
@@ -36,7 +90,7 @@ static bool GetEvent(int timeout)
         longjmp(kill, 1);
         break;
       case SDL_WINDOWEVENT:
-        RendUpdate();
+        //RendUpdate();
         break;
       case SDL_KEYDOWN:
         ea.arg[0] = "keydown";
@@ -44,28 +98,28 @@ static bool GetEvent(int timeout)
         ea.len = 2;
         queue_push(&event_queue, ea);
         return true;
-        /
+        /*
         lua_pushstring(L, "keydown");
         lua_pushnumber(L, event.key.keysym.scancode);
-        /
+        */
       case SDL_KEYUP:
         ea.arg[0] = "keydup";
         ea.arg[1] = int2str(event.key.keysym.scancode);
         ea.len = 2;
         queue_push(&event_queue, ea);
         return true;
-        /
+        /*
         lua_pushstring(L, "keyup");
         lua_pushnumber(L, event.key.keysym.scancode);
-        /
+        */
     }
   }
   return false;
 }
-*/
 
-/*
-static void l_hook(lua_State* L, lua_Debug* d)
+
+static void
+l_hook(lua_State* L, lua_Debug* d)
 {
   if (d->event == 0)
   {
@@ -85,19 +139,22 @@ static void l_hook(lua_State* L, lua_Debug* d)
 
 // -------------- function -------------- //
 
-static int lf_gettotal(lua_State* L)
+static int
+lf_gettotal(lua_State* L)
 {
   lua_pushnumber(L, 1024*1024*MAX_SIZE);
   return 1;
 }
 
-static int lf_getused(lua_State* L)
+static int
+lf_getused(lua_State* L)
 {
   lua_pushnumber(L, *pUd);
   return 1;
 }
 
-static int lf_pullevent(lua_State* L)
+static int
+lf_pullevent(lua_State* L)
 {
   lua_Number arg = luaL_checknumber(L, 1);
   if (event_queue.length == 0)
@@ -115,7 +172,8 @@ static int lf_pullevent(lua_State* L)
   return 0;
 }
 
-static int lf_pushevent(lua_State* L)
+static int
+lf_pushevent(lua_State* L)
 {
   event_args_t ea;
   for (int i = 0; i < lua_gettop(L); i++)
@@ -136,7 +194,8 @@ static int lf_pushevent(lua_State* L)
 }
 
 // GPU //
-static int lf_gpusetcolor(lua_State* L)
+static int
+lf_gpusetcolor(lua_State* L)
 {
   lua_Number col = luaL_checknumber(L, -1);
   currentColor = col;
@@ -144,13 +203,15 @@ static int lf_gpusetcolor(lua_State* L)
   return 0;
 }
 
-static int lf_gpugetcolor(lua_State* L)
+static int
+lf_gpugetcolor(lua_State* L)
 {
   lua_pushnumber(L, currentColor);
   return 1;
 }
 
-static int lf_gpugetpixel(lua_State* L)
+static int
+lf_gpugetpixel(lua_State* L)
 {
   lua_Number fx = luaL_checknumber(L, -2);
   lua_Number fy = luaL_checknumber(L, -1);
@@ -161,7 +222,8 @@ static int lf_gpugetpixel(lua_State* L)
 }
 
 
-static int lf_gpufill(lua_State* L)
+static int
+lf_gpufill(lua_State* L)
 {
   lua_Number fx = luaL_checknumber(L, -4);
   lua_Number fy = luaL_checknumber(L, -3);
@@ -172,7 +234,8 @@ static int lf_gpufill(lua_State* L)
   return 0;
 }
 
-static int lf_gpucopy(lua_State* L)
+static int
+lf_gpucopy(lua_State* L)
 {
   lua_Number fx =  luaL_checknumber(L, -6);
   lua_Number fy =  luaL_checknumber(L, -5);
@@ -185,32 +248,26 @@ static int lf_gpucopy(lua_State* L)
   return 0;
 }
 
-static int lf_gpuclear()
+static int
+lf_gpuclear()
 {
   d_fill(pCan, currentColor);
 
   return 0;
 }
 
-static int lf_gpuupdate()
+static int
+lf_gpuupdate()
 {
-  void *pixels;
-  int pitch;
-  SDL_LockTexture(pTex, &TEX_RECT, &pixels, &pitch);
-  for (size_t y = 0; y < WIN_H; ++y) {
-    memcpy((char*)pixels + y*pitch, pCan->pixels + y*WIN_W, WIN_W*sizeof(uint32_t));
-  }
-  SDL_UnlockTexture(pTex);
-
-  SDL_RenderCopy(pRen, pTex, &TEX_RECT, &TEX_RECT);
-  SDL_RenderPresent(pRen);
+  sdl_Update();
 
   return 0;
 }
 
 // Modifications //
 
-static int lf_corocreate(lua_State* L)
+static int
+lf_corocreate(lua_State* L)
 {
   puts("[C] Coro create e");
   lua_State* NL;
@@ -233,8 +290,9 @@ static const luaL_Reg computerlib[] =
   {NULL, NULL}
 };
 
-static int luaopen_computer (lua_State *L) {
-  luaL_newlib(L, computerlib);  / new module /
+static int
+luaopen_computer (lua_State *L) {
+  luaL_newlib(L, computerlib);  /* new module */
   return 1;
 }
 
@@ -250,8 +308,9 @@ static const luaL_Reg gpulib[] =
   {NULL, NULL}
 };
 
-static int luaopen_gpu (lua_State *L) {
-  luaL_newlib(L, gpulib);  / new module /
+static int
+luaopen_gpu (lua_State *L) {
+  luaL_newlib(L, gpulib);  /* new module */
   return 1;
 }
 
@@ -279,24 +338,26 @@ static const luaL_Reg preloadedlibs[] =
 };
 
 
-static void OpenLibs (lua_State *L)
+static void
+OpenLibs (lua_State *L)
 {
   const luaL_Reg *lib;
-  / call open functions from 'loadedlibs' and set results to global table /
+  /* call open functions from 'loadedlibs' and set results to global table */
   for (lib = loadedlibs; lib->func; lib++) {
     luaL_requiref(L, lib->name, lib->func, 1);
-    lua_pop(L, 1);  / remove lib /
+    lua_pop(L, 1);  /* remove lib */
   }
-  / add open functions from 'preloadedlibs' into 'package.preload' table /
+  /* add open functions from 'preloadedlibs' into 'package.preload' table */
   luaL_getsubtable(L, LUA_REGISTRYINDEX, "_PRELOAD");
   for (lib = preloadedlibs; lib->func; lib++) {
     lua_pushcfunction(L, lib->func);
     lua_setfield(L, -2, lib->name);
   }
-  lua_pop(L, 1);  / remove _PRELOAD table /
+  lua_pop(L, 1);  /* remove _PRELOAD table */
 }
 
-static void ModifyLibs(lua_State* L)
+static void
+ModifyLibs(lua_State* L)
 {
   if (DISABLE_PRINT == 1)
   {
@@ -308,4 +369,42 @@ static void ModifyLibs(lua_State* L)
   lua_setfield(L, -2, "create");
   lua_setglobal(L, "coroutine");
 }
-*/
+
+void
+lua_DeInitLua()
+{
+  if (L != NULL)
+    lua_close(L);
+}
+
+int
+lua_InitLua(/*lua_State* NL*/)
+{
+  pUd = (uint64_t*)malloc(sizeof(uint64_t));
+  *pUd = 0;
+  L = lua_newstate(l_alloc, pUd);
+  if (L == NULL)
+  {
+    printf("[E] Error in creating new lua state\n");
+    return 1;
+  }
+  OpenLibs(L);
+  ModifyLibs(L);
+  return 0;
+}
+
+void
+lua_Start()
+{
+  pCan = sdl_GetCanvas();
+  OpenLibs(L);
+  ModifyLibs(L);
+
+  sdl_RendClear();
+  lua_sethook(L, l_hook, LUA_MASKCOUNT | LUA_MASKCALL, 1000);
+
+  currentTimeout = SDL_GetTicks64() + KILL_TIMEOUT;
+  if (setjmp(kill) == 0)
+    luaL_dofile(L, "./FS/init.lua");
+}
+

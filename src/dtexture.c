@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include "../include/dtexture.h"
+#include "dtexture.h"
 
 
 d_Canvas* d_newCanvas(uint16_t width, uint16_t height)
