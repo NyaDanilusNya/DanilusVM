@@ -2,11 +2,13 @@
 
 A small virtual machine written in C
 
-#### About
+### About
 
 Toy virtual machine, written in C, uses Lua 5.2 and SDL (in the future there will be a programming language)
 
 ### Requirements
+
+#### Debian-like
 
 ```
 make
@@ -17,10 +19,25 @@ liblua5.2-dev
 clang
 ```
 
+#### Arch-like
+
+```
+make
+sdl2
+lua52
+clang
+```
+
 If you are using a Debian family operating system, you can use this command:
 
 ```shell
 # apt install make libsdl2-2.0-0 libsdl2-dev liblua5.2-0 liblua5.2-dev clang
+```
+
+If you are using a Arch family operating system, you can use this command:
+
+```shell
+# pacman -S make sdl2 lua52 clang
 ```
 
 ### Build 'n' Run
