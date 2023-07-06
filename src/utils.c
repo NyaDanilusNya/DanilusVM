@@ -2,7 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "utlist.h"
+#include "utils.h"
 #include "lua.h"
 #include "sdl.h"
 
