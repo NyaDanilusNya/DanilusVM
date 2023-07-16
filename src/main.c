@@ -5,7 +5,7 @@
 #include "event_queue.h"
 #include "lua.h"
 #include "utils.h"
-
+#include "config.h"
 
 int
 main()

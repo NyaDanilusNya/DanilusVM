@@ -12,6 +12,7 @@
 #include "utils.h"
 #include "dtexture.h"
 #include "sdl.h"
+#include "config.h"
 
 #define DISABLE_PRINT 0
 
@@ -19,10 +20,10 @@ static uint64_t* pUd;
 static lua_State* L = NULL;
 static uint32_t currentColor;
 static uint64_t currentTimeout;
-static const int MAX_SIZE = 1; // RAM in MiB
+static uint64_t KILL_TIMEOUT = 10*1000; // 10 seconds
+static uint32_t CPU_HZ = 10;
+static int MAX_SIZE = 1; // RAM in MiB
 static bool lowMemory = false;
-static const uint64_t KILL_TIMEOUT = 10*1000; // 10 seconds
-static const uint32_t CPU_HZ = 10;
 static SDL_Event event;
 static queue_t event_queue;
 static d_Canvas* pCan;
@@ -43,19 +44,19 @@ l_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
   {
     free(ptr);
     *used -= osize;
-    if (*used < 1024*1024*MAX_SIZE-512)
+    if (*used < (uint64_t)1024*1024*MAX_SIZE-512)
       lowMemory = false;
     return NULL;
   }
   else
   {
-    if (*used + (nsize - osize) > 1024*1024*MAX_SIZE)
+    if (*used + (nsize - osize) > (uint64_t)1024*1024*MAX_SIZE)
     {
       puts("[critical] Memory out!");
       lua_yield(L, 0);
       //exit(1);
     }
-    if (*used + (nsize - osize) > 1024*1024*MAX_SIZE-512)
+    if (*used + (nsize - osize) > (uint64_t)1024*1024*MAX_SIZE-512)
     {
       if (lowMemory == false)
       {
@@ -68,7 +69,7 @@ l_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
     if (ptr)
       *used += (nsize - osize);
 
-    if (*used < 1024*1024*MAX_SIZE-512)
+    if (*used < (uint64_t)1024*1024*MAX_SIZE-512)
       lowMemory = false;
 
     return ptr;
@@ -380,6 +381,46 @@ lua_DeInitLua()
 int
 lua_InitLua(/*lua_State* NL*/)
 {
+  char* val = cfg_GetValue("ram_size");
+  if (val != NULL)
+  {
+    int ival = atoi(val);
+    if (ival >= 0)
+    {
+      MAX_SIZE = ival;
+    }
+    else
+    {
+      MAX_SIZE = 1;
+    }
+  }
+  val = cfg_GetValue("kill_timeout");
+  if (val != NULL)
+  {
+    int ival = atoi(val);
+    if (ival >= 0)
+    {
+      KILL_TIMEOUT = ival*1000;
+    }
+    else
+    {
+      KILL_TIMEOUT = 10*1000;
+    }
+  }
+  val = cfg_GetValue("cpu_clock");
+  if (val != NULL)
+  {
+    int ival = atoi(val);
+    if (ival >= 0)
+    {
+      CPU_HZ = ival;
+    }
+    else
+    {
+      CPU_HZ = 10;
+    }
+  }
+
   pUd = (uint64_t*)malloc(sizeof(uint64_t));
   *pUd = 0;
   L = lua_newstate(l_alloc, pUd);
@@ -404,7 +445,14 @@ lua_Start()
   lua_sethook(L, l_hook, LUA_MASKCOUNT | LUA_MASKCALL, 1000);
 
   currentTimeout = SDL_GetTicks64() + KILL_TIMEOUT;
+  char* rootpath = cfg_GetValue("root_path");
+  char* dopath;
+  if (rootpath != NULL)
+    dopath = ut_PathAdd(rootpath, "/init.lua");
+  else
+    dopath = "./FS/init.lua";
+
   if (setjmp(kill) == 0)
-    luaL_dofile(L, "./FS/init.lua");
+    luaL_dofile(L, dopath);
 }
 
