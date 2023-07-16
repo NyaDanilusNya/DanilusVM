@@ -106,7 +106,3 @@ At the moment you can configure the processor speed(`cpu_clock`), the amount of 
 **Notes:** 
 
 - if you try `while true do end` - the VM will be killed after 10 seconds (can be configured in `vm.cfg`)
-
-- The processor speed can be adjusted in the `vm.cfg`
-
-- There you can also change the time after which the VM will be killed `KILL_TIMEOUT` and the amount of RAM `MAX_SIZE` (in MiB)
