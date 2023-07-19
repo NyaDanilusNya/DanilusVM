@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
 #include "utils.h"
 #include "lua.h"
 #include "sdl.h"
@@ -34,8 +35,30 @@ ut_InitAll()
   lua_InitLua();
 }
 
+static void removeParentDirectory(char* path)
+{
+    char* parentDir = path;
+
+    while ((parentDir = strstr(path, "/../")) != NULL) {
+        char* previousSlash = parentDir;
+
+        // Найдем предыдущий слеш перед "/../"
+        while (previousSlash > path && *previousSlash != '/') {
+            previousSlash--;
+        }
+
+        // Если найден слеш перед "/../", скопируем часть строки после "/../" после этого слеша
+        if (*previousSlash == '/') {
+            strcpy(previousSlash, parentDir + 3); // +3 для пропуска "/../"
+        } else {
+            // В противном случае, удаляем всю строку, так как "/../" в начале пути
+            *parentDir = '\0';
+        }
+    }
+}
+
 char*
-ut_PathAdd(char* path, char* add)
+ut_PathAdd(const char* path,const char* add)
 {
   size_t len1 = strlen(path);
   size_t len2 = strlen(add);
@@ -44,7 +67,7 @@ ut_PathAdd(char* path, char* add)
 
   if (result == NULL)
   {
-    printf("Error while allocating memory.\n");
+    puts("[C] Error while allocating memory");
     return NULL;
   }
 
@@ -52,6 +75,17 @@ ut_PathAdd(char* path, char* add)
   strcpy(result + len1, add);
 
   return result;
+}
+
+char*
+ut_Resolve(const char* path)
+{
+  char* npath = strdup(path);
+  removeParentDirectory(npath);
+
+  char* retpath = ut_PathAdd(cfg_GetValue("root_path"), npath);
+  free(npath);
+  return retpath;
 }
 
 char*

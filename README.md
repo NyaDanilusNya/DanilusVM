@@ -62,19 +62,19 @@ $ make run
 
 The VM configuration can be done in the `vm.cfg` file.
 
-At the moment you can configure the processor speed(`cpu_clock`), the amount of RAM(`ram_size`), the time after which the system will be killed in case of a dead loop, as well as the path to the ile system of VM.
+At the moment you can configure the processor speed(`cpu_clock`), the amount of RAM(`ram_size`), the time after which the system will be killed in case of a dead loop, as well as the path to the file system of VM.
 
 ### API
 
-`gpu` - library for drawing graphics on the screen.
+`gpu` - interface for drawing graphics on the screen.
 
 *(at the moment it is not possible to get the screen resolution from Lua, it is 800x600)*
 
-`gpu.setColor(number color) -> nil` - sets the color to draw
+`gpu.setcolor(number color_rgba) -> nil` - sets the color to draw
 
-`gpu.getColor() -> number` - returns the current color
+`gpu.getcolor() -> number` - returns the current color
 
-`gpu.getPixel(number x, number y) -> number`- returns the color of the specified pixel
+`gpu.getpixel(number x, number y) -> number`- returns the color of the specified pixel
 
 `gpu.clear() -> nil` - clears the screen by filling it with the currently set color
 `gpu.fill(number x, number y, number w, number h) -> nil` - draws a rectangle
@@ -85,21 +85,59 @@ At the moment you can configure the processor speed(`cpu_clock`), the amount of 
 
 ---
 
-`computer` - library for working with a virtual machine (computer)
+`computer` - interface for working with a virtual machine (computer)
 
-`computer.getTotal() -> number` - returns the total amount of RAM
+`computer.gettotal() -> number` - returns the total amount of RAM
 
-`computer.getUsed() -> number` - returns the amount of used RAM
+`computer.getused() -> number` - returns the amount of used RAM
 
-`computer.pushEvent(...) -> nil` - accepts any numbers and strings, creates an event and adds to the queue
+`computer.pushevent(...) -> nil` - accepts any numbers and strings, creates an event and adds to the queue
 
-`computer.pullEvent(number timeout) -> ...` - retrieves information about an event by taking it from the event queue (returns all values ​​as a string!) (timeout in ms)
+`computer.pullevent(number timeout) -> ...` - retrieves information about an event by taking it from the event queue (returns all values ​​as a string!) (timeout in ms)
 
 - `keydown -> "keydown", string` - returns the event name and scancode. Triggered when a key is pressed on the keyboard
 
 - `keyup -> "keyup", string` - returns the event name and scancode. Triggered when a key is released on the keyboard 
 
 - (Yes, that's all for now :)
+
+---
+
+`filesystem` - interfave for working with filesystem of VM
+
+`filesystem.exists(string path) -> bool` - checks if file exists
+
+`filesystem.isdir(string path) -> bool` - checks if a folder exists
+
+`filesystem.mkdir(string path) -> bool` - creates folder, if successful then returns true
+
+`filesystem.size(string path) -> bool, number` - returns true if successful and size of file
+
+`filesystem.rmfile(string path) -> bool` - deletes the file (or folder) if it is empty, returns true if successful
+
+`filesystem.rmdir(string path) -> bool` - deletes the folder if it is empty, returns true if successful
+
+`filesystem.listdir(string path) -> bool, table` - reads a folder and returns true if successful and an array with the names of files and folders
+
+`filesystem.rename(string oldname, string newname) -> bool` - renames a file, returns true if successful
+
+`filesystem.open(string path, string mode) -> bool, number` - opens a file, returns true if successful and returns a file descriptor
+
+`filesystem.close(number fd) -> bool` - closes a file, returns true if successful
+
+`filesystem.write(number fd, string data) -> bool` - writes data to file, returns true if successful
+
+`filesystem.read(number fd, number bytes) -> bool, string` - reads a certain number of bytes, returns true if successful and read bytes
+
+`filesystem.seek(number fd, number type, number offset) -> bool` - shifts the cursor by a certain number of bytes, the type indicates what to shift relative to
+
+- `1` - set (begin of file)
+
+- `2` - cursor
+
+- `3` - end (end of file)
+
+`filesystem.getpos(number fd) -> bool, number` - returns true if successful and position of cursor in a file
 
 ---
 

@@ -37,7 +37,7 @@ cfg_ReadConfig(const char* path)
   {
     char * test = ut_StrTrim(line);
 
-    if (test[0] == '#')
+    if (test[0] == '#' || test[0] == '\0')
       continue;
 
     char* key = strtok(line, "=");

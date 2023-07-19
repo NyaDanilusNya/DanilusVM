@@ -7,12 +7,16 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <setjmp.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #include "event_queue.h"
 #include "lua.h"
 #include "utils.h"
 #include "dtexture.h"
 #include "sdl.h"
 #include "config.h"
+#include "fdcontrol.h"
 
 #define DISABLE_PRINT 0
 
@@ -31,9 +35,9 @@ static d_Canvas* pCan;
 jmp_buf kill;
 
 static void*
-l_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
+l_alloc(void* ud, void* ptr, size_t osize, size_t nsize)
 {
-  uint64_t *used = (uint64_t*)ud;
+  uint64_t* used = (uint64_t*)ud;
 
   if(ptr == NULL)
   {
@@ -94,7 +98,7 @@ GetEvent(int timeout)
         //RendUpdate();
         break;
       case SDL_KEYDOWN:
-        ea.arg[0] = "keydown";
+        ea.arg[0] = strdup("keydown");
         ea.arg[1] = int2str(event.key.keysym.scancode);
         ea.len = 2;
         queue_push(&event_queue, ea);
@@ -104,7 +108,7 @@ GetEvent(int timeout)
         lua_pushnumber(L, event.key.keysym.scancode);
         */
       case SDL_KEYUP:
-        ea.arg[0] = "keydup";
+        ea.arg[0] = strdup("keydup");
         ea.arg[1] = int2str(event.key.keysym.scancode);
         ea.len = 2;
         queue_push(&event_queue, ea);
@@ -122,6 +126,9 @@ GetEvent(int timeout)
 static void
 l_hook(lua_State* L, lua_Debug* d)
 {
+  if (L == NULL)
+    return;
+
   if (d->event == 0)
   {
     GetEvent(1);
@@ -170,7 +177,6 @@ lf_pullevent(lua_State* L)
     lua_pushstring(L, e.arg[i]);
   }
   return e.len;
-  return 0;
 }
 
 static int
@@ -265,6 +271,325 @@ lf_gpuupdate()
   return 0;
 }
 
+// FileSystem //
+
+static int
+lf_fsexists(lua_State* L)
+{
+  const char * path = lua_tostring(L, -1);
+  if (path == NULL || path[0] != '/')
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  char* npath = ut_Resolve(path);
+  if(access(npath, F_OK) == 0)
+  {
+    free(npath);
+    lua_pushboolean(L, true);
+    return 1;
+  }
+  free(npath);
+  lua_pushboolean(L, false);
+  return 1;
+}
+
+static int
+lf_fsisdir(lua_State* L)
+{
+  const char * path = lua_tostring(L, -1);
+  if (path == NULL || path[0] != '/')
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  char* npath = ut_Resolve(path);
+  DIR* dir = opendir(npath);
+  free(npath);
+  if (dir)
+  {
+    closedir(dir);
+    lua_pushboolean(L, true);
+    return 1;
+  }
+  else
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+}
+
+static int
+lf_fsmkdir(lua_State* L)
+{
+  const char * path = lua_tostring(L, -1);
+  if (path == NULL || path[0] != '/')
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  char* npath = ut_Resolve(path);
+  int ret = mkdir(npath, S_IRWXU);
+  free(npath);
+  if (ret == -1)
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  else
+  {
+    lua_pushboolean(L, true);
+    return 1;
+  }
+}
+
+static int
+lf_fsrmfile(lua_State* L)
+{
+  const char * path = lua_tostring(L, -1);
+  if (path == NULL || path[0] != '/')
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  char* npath = ut_Resolve(path);
+  if (remove(npath) == 0)
+  {
+    free(npath);
+    lua_pushboolean(L, true);
+    return 1;
+  }
+  else
+  {
+    free(npath);
+    lua_pushboolean(L, false);
+    return 1;
+  }
+
+}
+
+static int
+lf_fsrmdir(lua_State* L)
+{
+  const char * path = lua_tostring(L, -1);
+  if (path == NULL || path[0] != '/')
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  char* npath = ut_Resolve(path);
+  if (rmdir(npath) == 0)
+  {
+    free(npath);
+    lua_pushboolean(L, true);
+    return 1;
+  }
+  else
+  {
+    free(npath);
+    lua_pushboolean(L, false);
+    return 1;
+  }
+
+}
+
+static int
+lf_fsopen(lua_State* L)
+{
+  const char* path = lua_tostring(L, -2);
+  const char* mode = lua_tostring(L, -1);
+  if (path == NULL || mode == NULL)
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+
+  char* npath = ut_Resolve(path);
+  int fd = fdc_OpenFile(npath, mode);
+  free(npath);
+  if (fd == -1)
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  lua_pushboolean(L, true);
+  lua_pushnumber(L, fd);
+  return 2;
+}
+
+static int
+lf_fsclose(lua_State* L)
+{
+  lua_Number fd = luaL_checknumber(L, -1);
+
+  if (fdc_CloseFile(fd) == 0)
+  {
+    lua_pushboolean(L, true);
+    return 1;
+  }
+  lua_pushboolean(L, false);
+  return 1;
+}
+
+static int
+lf_fswrite(lua_State* L)
+{
+  lua_Number fd = luaL_checknumber(L, -2);
+  const char* data = lua_tostring(L, -1);
+
+  if (data == NULL)
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  if (fdc_WriteFile(fd, data) == 1)
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  lua_pushboolean(L, true);
+  return 1;
+}
+
+static int
+lf_fsread(lua_State* L)
+{
+  lua_Number fd = luaL_checknumber(L, -2);
+  lua_Number bytes = luaL_checknumber(L, -1);
+
+  char* data = malloc(sizeof(char)*(bytes+1));
+  int res = fdc_ReadFile(fd, bytes, data);
+  if (res == 1)
+  {
+    free(data);
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  lua_pushboolean(L, true);
+  lua_pushstring(L, data);
+  free(data);
+  return 2;
+}
+
+static int
+lf_fsseek(lua_State* L)
+{
+  lua_Number fd = luaL_checknumber(L, -3);
+  lua_Number type = luaL_checknumber(L, -2);
+  lua_Number offset = luaL_checknumber(L, -1);
+
+  if (fdc_SeekFile(fd, type, offset) == 1)
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  lua_pushboolean(L, true);
+  return 1;
+}
+
+static int
+lf_fsgetpos(lua_State* L)
+{
+  lua_Number fd = luaL_checknumber(L, -1);
+  int res = fdc_GetposFile(fd);
+  if (res == -1)
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  lua_pushboolean(L, true);
+  lua_pushnumber(L, res);
+  return 2;
+}
+
+static int
+lf_fslistdir(lua_State* L)
+{
+  const char* path = lua_tostring(L, -1);
+  if (path == NULL || path[0] != '/')
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+
+  int num;
+  char* npath = ut_Resolve(path);
+  ENTRY* entries = fdc_ListDir(npath, &num);
+  free(npath);
+  if (entries == NULL)
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+
+
+  lua_pushboolean(L, true);
+  lua_newtable(L);
+
+  for (int i = 0; i < num; i++)
+  {
+    lua_pushinteger(L, i+1);
+    lua_pushstring(L, entries[i].name);
+    lua_settable(L, -3);
+  }
+  free(entries);
+
+  return 2;
+}
+
+static int
+lf_fsrename(lua_State* L)
+{
+  const char* path = lua_tostring(L, -1);
+  if (path == NULL || path[0] != '/')
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+
+  char* new;
+  char* npath = ut_Resolve(path);
+  if (rename(npath, new) == 0)
+  {
+    free(npath);
+    lua_pushboolean(L, true);
+    return 1;
+  }
+  else
+  {
+    free(npath);
+    lua_pushboolean(L, false);
+    return 1;
+  }
+}
+
+static int
+lf_fssize(lua_State* L)
+{
+  const char* path = lua_tostring(L, -1);
+  if (path == NULL || path[0] != '/')
+  {
+    lua_pushboolean(L, false);
+    return 1;
+  }
+  struct stat sb;
+  char* npath = ut_Resolve(path);
+  if (stat(npath, &sb) == 0)
+  {
+    free(npath);
+    lua_pushboolean(L, true);
+    lua_pushnumber(L, sb.st_size);
+    return 2;
+  }
+  else
+  {
+    free(npath);
+    lua_pushboolean(L, false);
+    return 1;
+  }
+
+}
+
 // Modifications //
 
 static int
@@ -284,24 +609,25 @@ lf_corocreate(lua_State* L)
 
 static const luaL_Reg computerlib[] =
 {
-  {"getTotal", lf_gettotal},
-  {"getUsed", lf_getused},
-  {"pullEvent", lf_pullevent},
-  {"pushEvent", lf_pushevent},
+  {"gettotal", lf_gettotal},
+  {"getused", lf_getused},
+  {"pullevent", lf_pullevent},
+  {"pushevent", lf_pushevent},
   {NULL, NULL}
 };
 
 static int
-luaopen_computer (lua_State *L) {
+luaopen_computer (lua_State* L)
+{
   luaL_newlib(L, computerlib);  /* new module */
   return 1;
 }
 
 static const luaL_Reg gpulib[] =
 {
-  {"setColor", lf_gpusetcolor},
-  {"getColor", lf_gpugetcolor},
-  {"getPixel", lf_gpugetpixel},
+  {"setcolor", lf_gpusetcolor},
+  {"getcolor", lf_gpugetcolor},
+  {"getpixel", lf_gpugetpixel},
   {"clear", lf_gpuclear},
   {"fill", lf_gpufill},
   {"copy", lf_gpucopy},
@@ -310,8 +636,35 @@ static const luaL_Reg gpulib[] =
 };
 
 static int
-luaopen_gpu (lua_State *L) {
+luaopen_gpu (lua_State* L)
+{
   luaL_newlib(L, gpulib);  /* new module */
+  return 1;
+}
+
+static const luaL_Reg fslib[] =
+{
+  {"exists", lf_fsexists},
+  {"isdir", lf_fsisdir},
+  {"mkdir", lf_fsmkdir},
+  {"rmdir", lf_fsrmdir},
+  {"rmfile", lf_fsrmfile},
+  {"open", lf_fsopen},
+  {"close", lf_fsclose},
+  {"read", lf_fsread},
+  {"write", lf_fswrite},
+  {"seek", lf_fsseek},
+  {"getpos", lf_fsgetpos},
+  {"listdir", lf_fslistdir},
+  {"rename", lf_fsrename},
+  {"size", lf_fssize},
+  {NULL, NULL}
+};
+
+static int
+luaopen_fs (lua_State* L)
+{
+  luaL_newlib(L, fslib);
   return 1;
 }
 
@@ -329,6 +682,7 @@ static const luaL_Reg loadedlibs[] =
   {LUA_DBLIBNAME, luaopen_debug},
   {"computer", luaopen_computer},
   {"gpu", luaopen_gpu},
+  {"filesystem", luaopen_fs},
   {NULL, NULL}
 };
 
@@ -340,9 +694,9 @@ static const luaL_Reg preloadedlibs[] =
 
 
 static void
-OpenLibs (lua_State *L)
+OpenLibs (lua_State* L)
 {
-  const luaL_Reg *lib;
+  const luaL_Reg* lib;
   /* call open functions from 'loadedlibs' and set results to global table */
   for (lib = loadedlibs; lib->func; lib++) {
     luaL_requiref(L, lib->name, lib->func, 1);
@@ -376,6 +730,8 @@ lua_DeInitLua()
 {
   if (L != NULL)
     lua_close(L);
+  fdc_CloseAll();
+  free(pUd);
 }
 
 int
@@ -448,11 +804,14 @@ lua_Start()
   char* rootpath = cfg_GetValue("root_path");
   char* dopath;
   if (rootpath != NULL)
+  {
     dopath = ut_PathAdd(rootpath, "/init.lua");
+  }
   else
-    dopath = "./FS/init.lua";
+    dopath = strdup("./FS/init.lua");
 
   if (setjmp(kill) == 0)
     luaL_dofile(L, dopath);
+  free(dopath);
 }
 
