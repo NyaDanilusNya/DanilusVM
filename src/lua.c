@@ -131,9 +131,12 @@ l_hook(lua_State* L, lua_Debug* d)
 
   if (d->event == 0)
   {
-    GetEvent(1);
+    GetEvent(0);
     currentTimeout = SDL_GetTicks64() + KILL_TIMEOUT;
-    SDL_Delay(1000/CPU_HZ);
+    if (CPU_HZ != 0)
+    {
+      SDL_Delay(1000/CPU_HZ);
+    }
   }
   else if (d->event == 3)
   {
@@ -675,7 +678,7 @@ static const luaL_Reg loadedlibs[] =
   {LUA_COLIBNAME, luaopen_coroutine},
   {LUA_TABLIBNAME, luaopen_table},
   //{LUA_IOLIBNAME, luaopen_io},
-  {LUA_OSLIBNAME, luaopen_os},
+  //{LUA_OSLIBNAME, luaopen_os},
   {LUA_STRLIBNAME, luaopen_string},
   {LUA_BITLIBNAME, luaopen_bit32},
   {LUA_MATHLIBNAME, luaopen_math},
@@ -719,10 +722,46 @@ ModifyLibs(lua_State* L)
     lua_pushnil(L);
     lua_setglobal(L, "print");
   }
+  lua_pushnil(L);
+  lua_setglobal(L, "loadfile");
+  lua_pushnil(L);
+  lua_setglobal(L, "dofile");
+  lua_pushnil(L);
+  lua_setglobal(L, "module");
+  lua_pushnil(L);
+  lua_setglobal(L, "require");
+
   lua_getglobal(L, "coroutine");
   lua_pushcfunction(L, lf_corocreate);
   lua_setfield(L, -2, "create");
-  lua_setglobal(L, "coroutine");
+  lua_pop(L, 1);
+
+  lua_getglobal(L, "debug");
+  lua_pushnil(L);
+  lua_setfield(L, -2, "setuservalue");
+  lua_pushnil(L);
+  lua_setfield(L, -2, "getmetatable");
+  lua_pushnil(L);
+  lua_setfield(L, -2, "gethook");
+  lua_pushnil(L);
+  lua_setfield(L, -2, "getregistry");
+  lua_pushnil(L);
+  lua_setfield(L, -2, "getuservalue");
+  lua_pushnil(L);
+  lua_setfield(L, -2, "setmetatable");
+  lua_pushnil(L);
+  lua_setfield(L, -2, "setupvalue");
+  lua_pushnil(L);
+  lua_setfield(L, -2, "upvaluejoin");
+  lua_pushnil(L);
+  lua_setfield(L, -2, "getupvalue");
+  lua_pushnil(L);
+  lua_setfield(L, -2, "sethook");
+  lua_pushnil(L);
+  lua_setfield(L, -2, "upvalueid");
+  lua_pushnil(L);
+  lua_setfield(L, -2, "debug");
+  lua_pop(L, 1);
 }
 
 void
@@ -771,9 +810,13 @@ lua_InitLua(/*lua_State* NL*/)
     {
       CPU_HZ = ival;
     }
+    else if (ival == -1)
+    {
+      CPU_HZ = 0;
+    }
     else
     {
-      CPU_HZ = 10;
+      CPU_HZ = 100;
     }
   }
 
