@@ -57,50 +57,30 @@ local function main()
     print("[Lua] size of /init.lua = " .. resp)
   end
   ]]
+  --[[
   local res1 = filesystem.exists("/init.lua")
   local res2 = filesystem.exists("init.lua")
   local res3 = filesystem.exists("/../main")
   print("[lua] 1: ", res1, ", 2: ", res2, ", 3: ", res3)
+  ]]
 
-  local leters = {
-    a={
-      {0,0,1,0,0},
-      {0,1,0,1,0},
-      {0,1,1,1,0},
-      {0,1,0,1,0},
-      {0,1,0,1,0},
-    },
-    b={
-      {0,1,1,0,0},
-      {0,1,0,1,0},
-      {0,1,1,0,0},
-      {0,1,0,1,0},
-      {0,1,1,0,0},
-    },
-    o={
-      {0,0,1,0,0},
-      {0,1,0,1,0},
-      {0,1,0,1,0},
-      {0,1,0,1,0},
-      {0,0,1,0,0},
-    }
-  }
+  --[[
+  draw(3, "aboba linux\n\n[danilus@aboba]$ ")
+  draw(3, "sudo pacman -s aboba\n")
+  draw(3, "aboba linux\n\n[danilus@aboba]$ ")
+  ]]
 
-  str = "aboba"
-  fontsize = 15
-
-  gpu.setcolor(0xFF0000FF)
-  for i=1,#str do
-    for x=1,5 do
-      for y=1,5 do
-        if leters[str:sub(i,i)][y][x] == 1 then
-          gpu.fill(((i-1)*fontsize*5) + 2 + x*fontsize,y*fontsize,fontsize,fontsize)
-          gpu.update()
-        end
-      end
+  --[[
+  local r, f = filesystem.open("/aboba", "w")
+  for i,k in pairs(_G) do
+    if i:sub(1,1) ~= "_" and type(k) == "table" then
+      for a,b in pairs(k) do filesystem.write(f,i .. "." .. a .. "\n") end
     end
   end
+  filesystem.close(f)
+  ]]
 
+  --[[
   print("[lua] main loop")
   while true do
     local b, p = computer.pullevent(1000)
@@ -110,10 +90,34 @@ local function main()
         print("[lua] dead")
         break
       end
-    else
-      print("[lua] elsa")
+      if b == "keydown" and keysym[tonumber(p)] ~= nil then
+        draw(3, keysym[tonumber(p)])
+      end
     end
   end
+  ]]
+  function dofile(path, ...)
+    if filesystem.exists(path) and not filesystem.isdir(path) then
+      local r,f = filesystem.open(path, "r")
+      if not r then return false, "cannot open file" end
+      local buf, chunk, res = "", ""
+      while true do
+        res, chunk = filesystem.read(f, 512)
+        if res then buf = buf .. chunk else break end
+      end
+      filesystem.close(f)
+      local func, reas = load(buf, "=" ..path)
+      if not func then return false, reas end
+      return pcall(func,...)
+    end
+  end
+  function log(text)
+    local r,f = filesystem.open("/boot/log", "a")
+    if r then filesystem.write(f, tostring(text) .. "\n") filesystem.close(f) end
+  end
+  local res, reas = dofile("/boot/kernel.lua")
+  print(res, reas)
+  if not res then log(reas) end
 
 end
 
