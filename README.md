@@ -62,15 +62,15 @@ $ make run
 
 The VM configuration can be done in the `vm.cfg` file.
 
-At the moment you can configure the processor speed(`cpu_clock`), the amount of RAM(`ram_size`), the time after which the system will be killed in case of a dead loop, as well as the path to the file system of VM.
+At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (`ram_size`), the time after which the system will be killed in case of a dead loop, as well as the path to the file system of VM.
 
 ### API
 
 `gpu` - interface for drawing graphics on the screen.
 
-*(at the moment it is not possible to get the screen resolution from Lua, it is 800x600)*
+*(at the moment it is not possible to get the screen resolution with Lua, it is 800x600)*
 
-`gpu.setcolor(number color_rgba) -> nil` - sets the color to draw
+`gpu.setcolor(number color_rgba) -> nil` - sets the drawing color
 
 `gpu.getcolor() -> number` - returns the current color
 
@@ -85,7 +85,7 @@ At the moment you can configure the processor speed(`cpu_clock`), the amount of 
 
 ---
 
-`computer` - interface for working with a virtual machine (computer)
+`computer` - interface for working with the virtual machine (computer)
 
 `computer.gettotal() -> number` - returns the total amount of RAM
 
@@ -93,7 +93,7 @@ At the moment you can configure the processor speed(`cpu_clock`), the amount of 
 
 `computer.pushevent(...) -> nil` - accepts any numbers and strings, creates an event and adds to the queue
 
-`computer.pullevent(number timeout) -> ...` - retrieves information about an event by taking it from the event queue (returns all values ​​as a string!) (timeout in ms)
+`computer.pullevent(number timeout) -> ...` - retrieves information about an event by taking it from the event queue (returns all values as a string!) (timeout in ms)
 
 - `keydown -> "keydown", string` - returns the event name and scancode. Triggered when a key is pressed on the keyboard
 
@@ -103,15 +103,15 @@ At the moment you can configure the processor speed(`cpu_clock`), the amount of 
 
 ---
 
-`filesystem` - interfave for working with filesystem of VM
+`filesystem` - interface for working with filesystem of VM
 
 `filesystem.exists(string path) -> bool` - checks if file exists
 
 `filesystem.isdir(string path) -> bool` - checks if a folder exists
 
-`filesystem.mkdir(string path) -> bool` - creates folder, if successful then returns true
+`filesystem.mkdir(string path) -> bool` - creates a folder, if successful - returns true
 
-`filesystem.size(string path) -> bool, number` - returns true if successful and size of file
+`filesystem.size(string path) -> bool, number` - returns true if successful and the size of the specified file
 
 `filesystem.rmfile(string path) -> bool` - deletes the file (or folder) if it is empty, returns true if successful
 
@@ -127,7 +127,7 @@ At the moment you can configure the processor speed(`cpu_clock`), the amount of 
 
 `filesystem.write(number fd, string data) -> bool` - writes data to file, returns true if successful
 
-`filesystem.read(number fd, number bytes) -> bool, string` - reads a certain number of bytes, returns true if successful and read bytes
+`filesystem.read(number fd, number bytes) -> bool, string` - reads a certain number of bytes, returns true and the read bytes if successful
 
 `filesystem.seek(number fd, number type, number offset) -> bool` - shifts the cursor by a certain number of bytes, the type indicates what to shift relative to
 
@@ -137,7 +137,7 @@ At the moment you can configure the processor speed(`cpu_clock`), the amount of 
 
 - `3` - end (end of file)
 
-`filesystem.getpos(number fd) -> bool, number` - returns true if successful and position of cursor in a file
+`filesystem.getpos(number fd) -> bool, number` - returns true if successful and the position of the cursor in a file
 
 ---
 
