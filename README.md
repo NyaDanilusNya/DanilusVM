@@ -34,7 +34,7 @@ If you are using a Debian family operating system, you can use this command:
 # apt install make libsdl2-2.0-0 libsdl2-dev liblua5.2-0 liblua5.2-dev clang
 ```
 
-If you are using a Arch family operating system, you can use this command:
+If you are using an Arch family operating system, you can use this command:
 
 ```shell
 # pacman -S make sdl2 lua52 clang
@@ -50,7 +50,7 @@ $ make
 
 The compiled program will be in `./bin/main`
 
-The files of your operating system must be on the path ./FS/* (relative to the program file). The entry point is the `init.lua` file (you can change file system path in `vm.cfg`)
+The files of your operating system must be on the path `./FS/*` (relative to the `./main` file). The entry point is the `init.lua` file (you can change file system path in `vm.cfg`)
 
 To run the VM, enter the program directory (`./bin` by default) and run `./main`, or use:
 
@@ -60,13 +60,13 @@ $ make run
 
 ### Config file
 
-The VM configuration can be done in the `vm.cfg` file.
+The VM configuration is done via the `vm.cfg` file.
 
 At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (`ram_size`), the time after which the system will be killed in case of a dead loop, as well as the path to the file system of VM.
 
 ### API
 
-`gpu` - interface for drawing graphics on the screen.
+`gpu` - an interface for drawing graphics on the screen.
 
 *(at the moment it is not possible to get the screen resolution with Lua, it is 800x600)*
 
@@ -85,7 +85,7 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 
 ---
 
-`computer` - interface for working with the virtual machine (computer)
+`computer` - an interface for working with the virtual machine (computer)
 
 `computer.gettotal() -> number` - returns the total amount of RAM
 
@@ -95,17 +95,17 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 
 `computer.pullevent(number timeout) -> ...` - retrieves information about an event by taking it from the event queue (returns all values as a string!) (timeout in ms)
 
-- `keydown -> "keydown", string` - returns the event name and scancode. Triggered when a key is pressed on the keyboard
+- `keydown -> "keydown", string` - returns the event name and the scancode. Triggered when a key is pressed on the keyboard
 
-- `keyup -> "keyup", string` - returns the event name and scancode. Triggered when a key is released on the keyboard 
+- `keyup -> "keyup", string` - returns the event name and the scancode. Triggered when a key is released on the keyboard 
 
 - (Yes, that's all for now :)
 
 ---
 
-`filesystem` - interface for working with filesystem of VM
+`filesystem` - an interface for working with filesystem of VM
 
-`filesystem.exists(string path) -> bool` - checks if file exists
+`filesystem.exists(string path) -> bool` - checks if a file exists
 
 `filesystem.isdir(string path) -> bool` - checks if a folder exists
 
@@ -131,7 +131,7 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 
 `filesystem.seek(number fd, number type, number offset) -> bool` - shifts the cursor by a certain number of bytes, the type indicates what to shift relative to
 
-- `1` - set (begin of file)
+- `1` - set (beginning of file)
 
 - `2` - cursor
 
