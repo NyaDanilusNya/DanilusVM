@@ -66,7 +66,7 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 
 ### API
 
-`gpu` - an interface for drawing graphics on the screen.
+`gpu` - an interface for drawing graphics on the screen
 
 *(at the moment it is not possible to get the screen resolution with Lua, it is 800x600)*
 
