@@ -1,0 +1,1 @@
+printt(getpwd().."\n")

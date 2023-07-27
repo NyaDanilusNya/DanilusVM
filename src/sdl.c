@@ -2,7 +2,7 @@
 #include "sdl.h"
 #include "utils.h"
 
-const uint16_t WIN_W = 800, WIN_H = 600;
+static const uint16_t WIN_W = 800, WIN_H = 600;
 
 static SDL_Window* pWin = NULL;
 static SDL_Renderer* pRen = NULL;
@@ -83,6 +83,18 @@ sdl_Update()
 
   SDL_RenderCopy(pRen, pTex, &TEX_RECT, &TEX_RECT);
   SDL_RenderPresent(pRen);
+}
+
+uint16_t
+sdl_GetWidth()
+{
+  return WIN_W;
+}
+
+uint16_t
+sdl_GetHeight()
+{
+  return WIN_H;
 }
 
 d_Canvas* sdl_GetCanvas()

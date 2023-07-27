@@ -86,7 +86,7 @@ GetEvent(int timeout)
 {
   event_args_t ea;
   uint64_t end = SDL_GetTicks64() + timeout;
-  while (end > SDL_GetTicks64())
+  do
   {
     SDL_PollEvent(&event);
     switch (event.type)
@@ -108,7 +108,7 @@ GetEvent(int timeout)
         lua_pushnumber(L, event.key.keysym.scancode);
         */
       case SDL_KEYUP:
-        ea.arg[0] = strdup("keydup");
+        ea.arg[0] = strdup("keyup");
         ea.arg[1] = int2str(event.key.keysym.scancode);
         ea.len = 2;
         queue_push(&event_queue, ea);
@@ -118,7 +118,7 @@ GetEvent(int timeout)
         lua_pushnumber(L, event.key.keysym.scancode);
         */
     }
-  }
+  } while (end > SDL_GetTicks64());
   return false;
 }
 
@@ -129,7 +129,7 @@ l_hook(lua_State* L, lua_Debug* d)
   if (L == NULL)
     return;
 
-  if (d->event == 0)
+  if (d->event == LUA_HOOKCALL)
   {
     GetEvent(0);
     currentTimeout = SDL_GetTicks64() + KILL_TIMEOUT;
@@ -138,7 +138,7 @@ l_hook(lua_State* L, lua_Debug* d)
       SDL_Delay(1000/CPU_HZ);
     }
   }
-  else if (d->event == 3)
+  else if (d->event == LUA_HOOKCOUNT)
   {
     if (SDL_GetTicks64() > currentTimeout)
     {
@@ -150,6 +150,7 @@ l_hook(lua_State* L, lua_Debug* d)
 
 // -------------- function -------------- //
 
+// Computer //
 static int
 lf_gettotal(lua_State* L)
 {
@@ -204,6 +205,14 @@ lf_pushevent(lua_State* L)
 }
 
 // GPU //
+static int
+lf_gpugetresolution(lua_State* L)
+{
+  lua_pushnumber(L, sdl_GetWidth());
+  lua_pushnumber(L, sdl_GetHeight());
+  return 2;
+}
+
 static int
 lf_gpusetcolor(lua_State* L)
 {
@@ -635,6 +644,7 @@ static const luaL_Reg gpulib[] =
   {"fill", lf_gpufill},
   {"copy", lf_gpucopy},
   {"update", lf_gpuupdate},
+  {"getresolution", lf_gpugetresolution},
   {NULL, NULL}
 };
 

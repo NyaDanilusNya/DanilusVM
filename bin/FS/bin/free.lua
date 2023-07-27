@@ -1,0 +1,6 @@
+printt("all     used    free\n")
+printt(computer.gettotal()/1024 .. "KiB ")
+setcursor(9)
+printt(math.floor(computer.getused()/1024) .. "KiB ")
+setcursor(17)
+printt(math.floor((computer.gettotal()-computer.getused())/1024) .. "KiB\n")
