@@ -6,7 +6,7 @@ local function main()
   print("isdir: /aboba: " .. tostring(filesystem.isdir("/aboba")))
   ]]
   --[[
-  gpu.setcolor(0xFFFF99FF)
+  gpu.setcolor(0xFF99FF)
   for i=1,100 do
     gpu.fill(1,600-15, i*8, 15)
     gpu.update()

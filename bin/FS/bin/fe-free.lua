@@ -1,0 +1,7 @@
+local free_perc = math.floor(computer.getused()/computer.gettotal()*100)
+printt("ALL\n")
+printt(computer.gettotal()/1024 .. "KiB/" .. math.floor(computer.getused()/1024) .. "KiB  (" .. free_perc .. "%)\n\n")
+printt("FREE\n")
+printt(math.floor((computer.gettotal()-computer.getused())/1024) .. "KiB\n")
+free_perc = math.floor(computer.getused()/computer.gettotal()*10)
+printt("[" .. string.rep('#', free_perc) .. string.rep('-', 10-free_perc) .. "]\n")

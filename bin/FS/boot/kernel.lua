@@ -26,7 +26,7 @@ local pwd = "/"
 function drawchar(text,size, fg, bg, posx, posy)
   while line > vh do
     gpu.copy(1,1,winw,winh,0,-(6*csize))
-    gpu.setcolor(0xFF000000)
+    gpu.setcolor(0x000000)
     gpu.fill(1,winh-(6*csize),winw,(6*csize))
     gpu.update()
     line = line - 1
@@ -34,8 +34,8 @@ function drawchar(text,size, fg, bg, posx, posy)
   size = size or csize
   posx = posx or row
   posy = posy or line
-  fg = fg or 0xFFFFFFFF
-  bg = bg or 0xFF000000
+  fg = fg or 0xFFFFFF
+  bg = bg or 0x000000
   local ch = text:sub(1,1):lower()
   if leters[ch] == nil then return end
   for x=1,5 do
@@ -79,7 +79,7 @@ function getsize() --> number
 end
 function setsize(newsize)
   csize = tonumber(newsize) or 2
-  gpu.setcolor(0xFF000000)
+  gpu.setcolor(0x000000)
   gpu.fill(1,1,winw,winh)
   gpu.update()
   setcursor(1,1)
@@ -111,6 +111,15 @@ function printt(text)
   end
 end
 
+local mx, my, omx, omy
+local clk = false
+local back = {
+  {0,0,0,0,0},
+  {0,0,0,0,0},
+  {0,0,0,0,0},
+  {0,0,0,0,0},
+  {0,0,0,0,0}
+}
 function read() --> string
   local tbl = {}
   local ch = ''
@@ -118,7 +127,7 @@ function read() --> string
   local shift = false
   drawchar('|', csize,nil,nil,row)
   while true do
-    tbl = {computer.pullevent(1000)}
+    tbl = {computer.pullevent(1)}
     if tbl[1] and tbl[1] == "keydown" and keysym[tonumber(tbl[2])] then
       ch = shift and keysymup[tonumber(tbl[2])] or keysym[tonumber(tbl[2])]
       if ch == '\n' then
@@ -143,7 +152,38 @@ function read() --> string
       elseif tbl[1] == "keyup" then
         shift = false
       end
+    elseif tbl[1] and tbl[1] == "mousedown" and tbl[2] == "1" then
+      clk = true
+    elseif tbl[1] and tbl[1] == "mouseup" and tbl[2] == "1" then
+      clk = false
+    elseif tbl[1] and tbl[1] == "mousemotion" then
+      mx = tonumber(tbl[2])
+      my = tonumber(tbl[3])
     end
+    
+    --[[
+    if not mx then goto skip end
+    if mx == omx and my == omy then goto skip end
+    if omx and not clk then
+      for i=1,5 do
+        for b=1,5 do
+          gpu.setcolor(back[i][b])
+          gpu.fill(omx-2+(i-1),omy-2+(b-1),1,1)
+        end
+      end
+    end
+    for i=1,5 do
+      for b=1,5 do
+        back[i][b] = gpu.getpixel(mx-2+(i-1), my-2+(b-1))
+      end
+    end
+    gpu.setcolor(0xFF99FF)
+    gpu.fill(mx-2,my-2,5,5)
+    gpu.update()
+    omx = mx
+    omy = my
+    ::skip::
+    ]]
   end
 end
 
@@ -156,7 +196,7 @@ function split (inputstr, sep)
   return t
 end
 
-gpu.setcolor(0xFFFFFFFF)
+gpu.setcolor(0xFFFFFF)
 printt("pain! os\nhttps://www.much-pain.org/\n\n")
 
 dofile("/bin/sh.lua")
