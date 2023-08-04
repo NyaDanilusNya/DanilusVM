@@ -48,12 +48,16 @@ void d_rect(d_Canvas* canvas, int x, int y, int w, int h, uint32_t color)
   }
 }
 
-uint32_t d_getPixel(d_Canvas* canvas, int x, int y)
+uint32_t
+d_getPixel(d_Canvas* canvas, int x, int y)
 {
+  if (x < 0 || y < 0 || x > canvas->width-1 || y > canvas->height-1)
+    return 0;
   return canvas->pixels[canvas->width*y+x];
 }
 
-void d_freeCanvas(d_Canvas* canvas)
+void
+d_freeCanvas(d_Canvas* canvas)
 {
   free(canvas->pixels);
   free(canvas);

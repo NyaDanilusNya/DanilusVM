@@ -1,7 +1,3 @@
-#include <lua5.2/lua.h>
-#include <lua5.2/lualib.h>
-#include <lua5.2/lauxlib.h>
-#include <SDL2/SDL.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -10,6 +6,10 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <lua5.2/lua.h>
+#include <lua5.2/lualib.h>
+#include <lua5.2/lauxlib.h>
+#include <SDL2/SDL.h>
 #include "event_queue.h"
 #include "lua.h"
 #include "utils.h"
@@ -117,6 +117,25 @@ GetEvent(int timeout)
         lua_pushstring(L, "keyup");
         lua_pushnumber(L, event.key.keysym.scancode);
         */
+      case SDL_MOUSEBUTTONDOWN:
+        ea.arg[0] = strdup("mousedown");
+        ea.arg[1] = int2str(event.button.button);
+        ea.len = 2;
+        queue_push(&event_queue, ea);
+        return true;
+      case SDL_MOUSEBUTTONUP:
+        ea.arg[0] = strdup("mouseup");
+        ea.arg[1] = int2str(event.button.button);
+        ea.len = 2;
+        queue_push(&event_queue, ea);
+        return true;
+      case SDL_MOUSEMOTION:
+        ea.arg[0] = strdup("mousemotion");
+        ea.arg[1] = int2str(event.motion.x);
+        ea.arg[2] = int2str(event.motion.y);
+        ea.len = 3;
+        queue_push(&event_queue, ea);
+        return true;
     }
   } while (end > SDL_GetTicks64());
   return false;
@@ -152,21 +171,21 @@ l_hook(lua_State* L, lua_Debug* d)
 
 // Computer //
 static int
-lf_gettotal(lua_State* L)
+lf_compgettotal(lua_State* L)
 {
   lua_pushnumber(L, 1024*1024*MAX_SIZE);
   return 1;
 }
 
 static int
-lf_getused(lua_State* L)
+lf_compgetused(lua_State* L)
 {
   lua_pushnumber(L, *pUd);
   return 1;
 }
 
 static int
-lf_pullevent(lua_State* L)
+lf_comppullevent(lua_State* L)
 {
   lua_Number arg = luaL_checknumber(L, 1);
   if (event_queue.length == 0)
@@ -179,12 +198,13 @@ lf_pullevent(lua_State* L)
   for (int i = 0; i < e.len; i++)
   {
     lua_pushstring(L, e.arg[i]);
+    free((void*)e.arg[i]);
   }
   return e.len;
 }
 
 static int
-lf_pushevent(lua_State* L)
+lf_comppushevent(lua_State* L)
 {
   event_args_t ea;
   for (int i = 0; i < lua_gettop(L); i++)
@@ -621,10 +641,10 @@ lf_corocreate(lua_State* L)
 
 static const luaL_Reg computerlib[] =
 {
-  {"gettotal", lf_gettotal},
-  {"getused", lf_getused},
-  {"pullevent", lf_pullevent},
-  {"pushevent", lf_pushevent},
+  {"gettotal", lf_compgettotal},
+  {"getused", lf_compgetused},
+  {"pullevent", lf_comppullevent},
+  {"pushevent", lf_comppushevent},
   {NULL, NULL}
 };
 

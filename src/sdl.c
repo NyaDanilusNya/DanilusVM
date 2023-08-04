@@ -43,7 +43,7 @@ sdl_InitSDL()
     ut_DeInitAll(1);
   }
 
-  pTex = SDL_CreateTexture(pRen, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, WIN_W, WIN_H);
+  pTex = SDL_CreateTexture(pRen, SDL_PIXELFORMAT_RGB888, SDL_TEXTUREACCESS_STREAMING, WIN_W, WIN_H);
   if (pTex == NULL)
   {
     printf("Cannot create texture (line 50): %s\n", SDL_GetError());
@@ -53,6 +53,7 @@ sdl_InitSDL()
 
   SDL_SetWindowResizable(pWin, SDL_FALSE);
   SDL_ShowCursor(SDL_DISABLE);
+  SDL_SetWindowGrab(pWin, SDL_TRUE);
 }
 
 void
