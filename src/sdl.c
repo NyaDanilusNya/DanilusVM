@@ -32,7 +32,7 @@ sdl_InitSDL()
   val = cfg_GetValue("window_h");
   if (val != NULL)
   {
-    winW = atoi(val);
+    winH = atoi(val);
   }
   texRect.w = winW;
   texRect.h = winH;
