@@ -20,14 +20,14 @@ typedef struct {
 typedef struct {
   const char* arg[8];
   int len;
-} event_args_t;
+} EventArgs_t;
 
 typedef struct {
   size_t length;
-  event_args_t* values;
-} queue_t;
+  EventArgs_t* values;
+} Queue_t;
 
-void queue_push(queue_t *q, event_args_t val);
+void eq_Push(Queue_t *q, EventArgs_t val);
 
-event_args_t queue_pop(queue_t *q);
+EventArgs_t eq_Pop(Queue_t *q);
 

@@ -13,12 +13,13 @@ typedef struct
   bool isalive;
   char* path;
   char* mode;
-} FILEINFO;
+} FileInfo_t;
 
 
-static FILEINFO files[10];
+static FileInfo_t files[10];
 
-int fdc_OpenFile(const char* path, const char* mode)
+int
+fdc_OpenFile(const char* path, const char* mode)
 {
   for (int i = 0; i < 10; i++)
   {
@@ -37,7 +38,8 @@ int fdc_OpenFile(const char* path, const char* mode)
   return -1;
 }
 
-int fdc_CloseFile(int fd)
+int
+fdc_CloseFile(int fd)
 {
   if (files[fd].isalive == true)
   {
@@ -50,7 +52,8 @@ int fdc_CloseFile(int fd)
   return 1;
 }
 
-int fdc_WriteFile(int fd, const char* data)
+int
+fdc_WriteFile(int fd, const char* data)
 {
   if (files[fd].isalive == false)
     return 1;
@@ -62,7 +65,8 @@ int fdc_WriteFile(int fd, const char* data)
   return 1;
 }
 
-int fdc_ReadFile(int fd, size_t bytes, char* buffer)
+int
+fdc_ReadFile(int fd, size_t bytes, char* buffer)
 {
   if (files[fd].isalive == false )
     return 1;
@@ -77,7 +81,8 @@ int fdc_ReadFile(int fd, size_t bytes, char* buffer)
   return 1;
 }
 
-int fdc_SeekFile(int fd, int type, size_t offset)
+int
+fdc_SeekFile(int fd, int type, size_t offset)
 {
   /*
    * set = 0
@@ -90,7 +95,8 @@ int fdc_SeekFile(int fd, int type, size_t offset)
   return 0;
 }
 
-long int fdc_GetposFile(int fd)
+long int
+fdc_GetposFile(int fd)
 {
   if (files[fd].isalive == false)
     return -1;
@@ -108,11 +114,11 @@ fdc_CloseAll()
   }
 }
 
-ENTRY*
+Entry_t*
 fdc_ListDir(const char* path, int* pNum)
 {
   int num = 0;
-  ENTRY* entries = malloc(sizeof(ENTRY)*MAX_ENTRIES);
+  Entry_t* entries = malloc(sizeof(Entry_t)*MAX_ENTRIES);
   if (entries == NULL)
   {
     puts("[C] Memory alloc error");
@@ -143,17 +149,4 @@ fdc_ListDir(const char* path, int* pNum)
 
   return entries;
 }
-
-
-/*
-static void dump()
-{
-  puts("----------");
-  for (int i = 0; i < 10; i++)
-  {
-    printf("data: fd = %d, path = %s, status: %d\n", i, files[i].path, files[i].isalive);
-  }
-  puts("----------");
-}
-*/
 

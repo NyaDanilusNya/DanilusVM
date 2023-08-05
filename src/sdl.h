@@ -12,6 +12,6 @@ void sdl_RendUpdate();
 void sdl_Update();
 uint16_t sdl_GetWidth();
 uint16_t sdl_GetHeight();
-d_Canvas* sdl_GetCanvas();
+Canvas_t* sdl_GetCanvas();
 
 #endif

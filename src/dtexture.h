@@ -12,27 +12,27 @@ typedef struct d_canvas
 {
   uint32_t* pixels;
   unsigned short width, height;
-} d_Canvas;
+} Canvas_t;
 
 /* Create a new canvas with specific width and height, return pointer to canvas */
-d_Canvas* d_newCanvas(unsigned short width, unsigned short height);
+Canvas_t* dt_NewCanvas(unsigned short width, unsigned short height);
 
 /* Set specified pixel */
-void d_setpixel(d_Canvas* canvas, int x, int y, uint32_t color);
+void dt_SetPixel(Canvas_t* canvas, int x, int y, uint32_t color);
 
 /* Fills the entire canvas with a specific color */
-void d_fill(d_Canvas* canvas, uint32_t color);
+void dt_Fill(Canvas_t* canvas, uint32_t color);
 
 /* Draw filled rect on the canvas */
-void d_rect(d_Canvas* canvas, int x, int y, int w, int h, uint32_t color);
+void dt_Rect(Canvas_t* canvas, int x, int y, int w, int h, uint32_t color);
 
 /* Returns the color (RGBA) (uint32_t) of a pixel at the specified coordinates */
-uint32_t d_getPixel(d_Canvas* canvas, int x, int y);
+uint32_t dt_GetPixel(Canvas_t* canvas, int x, int y);
 
 /* Free allocated memory */
-void d_freeCanvas(d_Canvas* canvas);
+void dt_FreeCanvas(Canvas_t* canvas);
 
 /* copies the selected area of ​​pixels and shifts it */
-void d_copy(d_Canvas* canvas, int x, int y, int w, int h, int xoffset, int yoffset);
+void dt_Copy(Canvas_t* canvas, int x, int y, int w, int h, int xoffset, int yoffset);
 
 #endif /* DANILUS_TEXTURE_H */

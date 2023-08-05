@@ -11,7 +11,7 @@
 #include "config.h"
 
 char*
-int2str(uint64_t val)
+ut_Int2Str(uint64_t val)
 {
   char* str = malloc((int)((ceil(log10(val+1))+1)*sizeof(char)));
   sprintf(str, "%ld", val);
@@ -35,7 +35,8 @@ ut_InitAll()
   lua_InitLua();
 }
 
-static void removeParentDirectory(char* path)
+static void
+RemoveParentDirectory(char* path)
 {
     char* parentDir = path;
 
@@ -81,7 +82,7 @@ char*
 ut_Resolve(const char* path)
 {
   char* npath = strdup(path);
-  removeParentDirectory(npath);
+  RemoveParentDirectory(npath);
 
   char* retpath = ut_PathAdd(cfg_GetValue("root_path"), npath);
   free(npath);

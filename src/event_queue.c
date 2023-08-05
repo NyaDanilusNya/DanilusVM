@@ -6,21 +6,23 @@
 #include <stdio.h>
 #include "event_queue.h"
 
-void queue_push(queue_t *q, event_args_t val) {
+void
+eq_Push(Queue_t *q, EventArgs_t val) {
   ++q->length;
-  q->values = realloc(q->values, q->length * sizeof(event_args_t));
+  q->values = realloc(q->values, q->length * sizeof(EventArgs_t));
   q->values[q->length-1] = val;
 }
 
-event_args_t queue_pop(queue_t *q) {
-  event_args_t val = q->values[0];
+EventArgs_t
+eq_Pop(Queue_t *q) {
+  EventArgs_t val = q->values[0];
 
   for (size_t i = 1; i < q->length; ++i) {
     q->values[i-1] = q->values[i];
   }
 
   --q->length;
-  q->values = realloc(q->values, q->length * sizeof(event_args_t));
+  q->values = realloc(q->values, q->length * sizeof(EventArgs_t));
   return val;
 }
 

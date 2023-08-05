@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-char* int2str(uint64_t val);
+char* ut_Int2Str(uint64_t val);
 void ut_DeInitAll(int err);
 void ut_InitAll();
 char* ut_PathAdd(const char* path, const char* add);

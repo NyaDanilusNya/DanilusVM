@@ -5,7 +5,7 @@
 
 typedef struct {
     char name[256];
-} ENTRY;
+} Entry_t;
 
 int fdc_OpenFile(const char* path, const char* mode);
 int fdc_CloseFile(int fd);
@@ -20,5 +20,5 @@ int fdc_ReadFile(int fd, size_t bytes, char* buffer);
 int fdc_SeekFile(int fd, int type, size_t offset);
 long int fdc_GetposFile(int fd);
 void fdc_CloseAll();
-ENTRY* fdc_ListDir(const char* path, int* num);
+Entry_t* fdc_ListDir(const char* path, int* num);
 #endif
