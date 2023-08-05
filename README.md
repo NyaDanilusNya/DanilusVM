@@ -4,7 +4,7 @@ A small virtual machine written in C
 
 ### About
 
-Toy virtual machine, written in C, uses Lua 5.2 and SDL (in the future there will be a programming language)
+Toy virtual machine, written in C, uses Lua 5.2 and SDL (maybe someday in the future the virtual machine will emulate the processor, RAM, VRAM)
 
 ### Requirements
 
@@ -31,13 +31,13 @@ clang
 If you are using a Debian family operating system, you can use this command:
 
 ```shell
-# apt install make libsdl2-2.0-0 libsdl2-dev liblua5.2-0 liblua5.2-dev clang
+$ sudo apt install make libsdl2-2.0-0 libsdl2-dev liblua5.2-0 liblua5.2-dev clang
 ```
 
 If you are using an Arch family operating system, you can use this command:
 
 ```shell
-# pacman -S make sdl2 lua52 clang
+$ sudo pacman -S make sdl2 lua52 clang
 ```
 
 ### Build 'n' Run
@@ -45,7 +45,7 @@ If you are using an Arch family operating system, you can use this command:
 To compile, use the following command:
 
 ```shell
-$ make
+$ make build
 ```
 
 The compiled program will be in `./bin/main`
@@ -58,30 +58,37 @@ To run the VM, enter the program directory (`./bin` by default) and run `./main`
 $ make run
 ```
 
+Also you can use this command to compile and run:
+
+```shell
+$ make
+```
+
 ### Config file
 
 The VM configuration is done via the `vm.cfg` file.
 
-At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (`ram_size`), the time after which the system will be killed in case of a dead loop, as well as the path to the file system of VM.
+At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (`ram_size`), the time after which the system will be killed in case of a dead loop, screen resolution(`window_w` and `window_h`), as well as the path to the file system of VM.
 
 ### API
 
 `gpu` - an interface for drawing graphics on the screen
 
-*(at the moment it is not possible to get the screen resolution with Lua, it is 800x600)*
-
-`gpu.setcolor(number color_rgba) -> nil` - sets the drawing color
+`gpu.setcolor(number color_rgb) -> nil` - sets the drawing color (`0xRRGGBB`)
 
 `gpu.getcolor() -> number` - returns the current color
 
 `gpu.getpixel(number x, number y) -> number`- returns the color of the specified pixel
 
 `gpu.clear() -> nil` - clears the screen by filling it with the currently set color
+
 `gpu.fill(number x, number y, number w, number h) -> nil` - draws a rectangle
 
 `gpu.copy(number x, number y, number w, number h, number xo, number yo) -> nil` - copies a piece of the screen and shifts it by the specified (ox, oy) number of pixels
 
 `gpu.update() -> nil` - update screen
+
+`gpu.getresolution() -> number, number` - returns the screen resolution
 
 ---
 
@@ -91,15 +98,19 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 
 `computer.getused() -> number` - returns the amount of used RAM
 
-`computer.pushevent(...) -> nil` - accepts any numbers and strings, creates an event and adds to the queue
+`computer.pushevent(...) -> nil` - accepts any numbers and strings, creates an event and adds to the queue (max nums of args is 8)
 
 `computer.pullevent(number timeout) -> ...` - retrieves information about an event by taking it from the event queue (returns all values as a string!) (timeout in ms)
 
-- `keydown -> "keydown", string` - returns the event name and the scancode. Triggered when a key is pressed on the keyboard
+- `keydown -> "keydown", scancode` - returns the event name and the scancode. Triggered when a key is pressed on the keyboard
 
-- `keyup -> "keyup", string` - returns the event name and the scancode. Triggered when a key is released on the keyboard 
+- `keyup -> "keyup", scancode` - returns the event name and the scancode. Triggered when a key is released on the keyboard 
 
-- (Yes, that's all for now :)
+- `mousemotion -> "mousemotion", x, y` - returns the name of the event and the x and y position of the mouse. Triggered when the mouse is moves
+
+- `mousedown -> "mousedown", button` - returns the event name and the button that pressed (1,2,3 for LMB, MMB, RMB). Triggered when the mouse is pressed
+
+- `keyup -> "keyup", scancode` - returns the event name and the button that released (1,2,3 for LMB, MMB, RMB). Triggered when the mouse is released
 
 ---
 
@@ -121,7 +132,7 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 
 `filesystem.rename(string oldname, string newname) -> bool` - renames a file, returns true if successful
 
-`filesystem.open(string path, string mode) -> bool, number` - opens a file, returns true if successful and returns a file descriptor
+`filesystem.open(string path, string mode) -> bool, number` - opens a file, returns true if successful and returns a file descriptor (max nums of open files is 10)
 
 `filesystem.close(number fd) -> bool` - closes a file, returns true if successful
 
