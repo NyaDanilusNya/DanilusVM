@@ -31,6 +31,7 @@ static bool lowMemory = false;
 static SDL_Event event;
 static Queue_t event_queue;
 static Canvas_t* pCan;
+static uint32_t* pVram;
 
 jmp_buf kill;
 
@@ -292,6 +293,189 @@ lf_GpuUpdate()
   sdl_Update();
 
   return 0;
+}
+
+static int
+lf_GpuStoreTexture(lua_State* L)
+{
+  if (lua_istable(L, 1))
+  {
+    int startIndex = 0;
+    int array_size = lua_rawlen(L, 1);
+
+    while (true)
+    {
+      if (pVram[startIndex] == 0)
+      {
+        bool success = true;
+        for (int i = 1; i <= array_size; i++)
+        {
+          if (pVram[startIndex+i] != 0)
+          {
+            success = false;
+          }
+        }
+        if (success)
+          break;
+        else
+        {
+          if (pVram[startIndex]+1 > 1024*32)
+          {
+            lua_pushboolean(L, false);
+            lua_pushstring(L, "VRAM is full");
+            return 2;
+          }
+          startIndex = pVram[startIndex]+1;
+        }
+      }
+      else
+      {
+        if (pVram[startIndex]+1 > 1024*32)
+        {
+          lua_pushboolean(L, false);
+          lua_pushstring(L, "VRAM is full");
+          return 2;
+        }
+        startIndex = pVram[startIndex]+1;
+      }
+    }
+
+
+    for (int i = 1; i <= array_size; ++i)
+    {
+      lua_pushinteger(L, i);
+      lua_gettable(L, 1);
+
+      if (lua_isnumber(L, -1))
+      {
+        int element = lua_tointeger(L, -1);
+        pVram[startIndex+i] = element;
+      }
+      else
+      {
+        lua_pushboolean(L, false);
+        lua_pushstring(L, "elements of table must be a number");
+        return 2;
+      }
+
+      lua_pop(L, 1);
+    }
+    pVram[startIndex] = array_size;
+/*
+    for (int i = 0; i < 50; i++)
+      printf("%X ", pVram[i]);
+    printf("\n");
+*/
+    lua_pushboolean(L, true);
+    lua_pushinteger(L, startIndex+1);
+    return 2;
+  }
+  else
+  {
+    lua_pushboolean(L, false);
+    lua_pushstring(L, "arg #1 must be a table");
+    return 2;
+  }
+
+  return 0;
+}
+
+static int
+lf_GpuFreeTexture(lua_State* L)
+{
+  lua_Number ptr = luaL_checknumber(L, 1);
+  if (ptr < 1)
+  {
+    lua_pushboolean(L, false);
+    lua_pushstring(L, "arg #1 must be great than 0");
+    return 2;
+  }
+
+  ptr--;
+  uint32_t startPtr = 0;
+  while (true)
+  {
+    if (startPtr == ptr)
+    {
+      if (pVram[(int)ptr] == 0)
+      {
+        lua_pushboolean(L, false);
+        lua_pushstring(L, "specified pointer is already freed");
+        return 2;
+      }
+      break;
+    }
+    else
+    {
+      startPtr = pVram[startPtr]+1;
+      if (startPtr > ptr)
+      {
+        lua_pushboolean(L, false);
+        lua_pushstring(L, "invalid pointer");
+        return 2;
+      }
+    }
+  }
+
+  memset(pVram+(int)ptr, 0, (pVram[(int)ptr]+1)*sizeof(uint32_t));
+
+  lua_pushboolean(L, true);
+  return 1;
+}
+
+static int
+lf_GpuDrawTexture(lua_State* L)
+{
+  lua_Number ptr   = luaL_checknumber(L, 1);
+  lua_Number cordX = luaL_checknumber(L, 2);
+  lua_Number cordY = luaL_checknumber(L, 3);
+  lua_Number textW = luaL_checknumber(L, 4);
+  lua_Number textH = luaL_checknumber(L, 5);
+
+  ptr--;
+  uint32_t startPtr = 0;
+  while (true)
+  {
+    if (startPtr == ptr)
+    {
+      if (pVram[(int)ptr] == 0)
+      {
+        lua_pushboolean(L, false);
+        lua_pushstring(L, "specified pointer is already freed");
+        return 2;
+      }
+      break;
+    }
+    else
+    {
+      startPtr = pVram[startPtr]+1;
+      if (startPtr > ptr)
+      {
+        lua_pushboolean(L, false);
+        lua_pushstring(L, "invalid pointer");
+        return 2;
+      }
+    }
+  }
+
+  if (textW*textH != pVram[(int)ptr])
+  {
+    lua_pushboolean(L, false);
+    lua_pushstring(L, "invalid size");
+    return 2;
+  }
+
+  int count = 0;
+  for (int oy = 0; oy < textW; oy++)
+  {
+    for (int ox = 0; ox < textH; ox++)
+    {
+      dt_SetPixel(pCan, cordX-1+ox, cordY-1+oy, pVram[(int)ptr+1+count]);
+      count++;
+    }
+  }
+  lua_pushboolean(L, true);
+  return 1;
 }
 
 // FileSystem //
@@ -656,6 +840,9 @@ static const luaL_Reg gpulib[] =
   {"copy", lf_GpuCopy},
   {"update", lf_GpuUpdate},
   {"getresolution", lf_GpuGetResolution},
+  {"storetexture", lf_GpuStoreTexture},
+  {"freetexture", lf_GpuFreeTexture},
+  {"drawtexture", lf_GpuDrawTexture},
   {NULL, NULL}
 };
 
@@ -791,7 +978,10 @@ lua_DeInitLua()
   if (L != NULL)
     lua_close(L);
   fdc_CloseAll();
-  free(pUd);
+  if (pUd != NULL)
+    free(pUd);
+  if (pVram != NULL)
+    free(pVram);
 }
 
 int
@@ -837,16 +1027,22 @@ lua_InitLua(/*lua_State* NL*/)
     }
     else
     {
-      CPU_HZ = 100;
+      CPU_HZ = 1000;
     }
   }
 
   pUd = (uint64_t*)malloc(sizeof(uint64_t));
+  pVram = (uint32_t*)calloc(1024*32, sizeof(uint32_t));
+  if (pUd == NULL || pVram == NULL)
+  {
+    fprintf(stderr, "[E] Error in allocating memory\n");
+    return 1;
+  }
   *pUd = 0;
   L = lua_newstate(l_alloc, pUd);
   if (L == NULL)
   {
-    printf("[E] Error in creating new lua state\n");
+    fprintf(stderr, "[E] Error in creating new lua state\n");
     return 1;
   }
   OpenLibs(L);
