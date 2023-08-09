@@ -70,6 +70,16 @@ The VM configuration is done via the `vm.cfg` file.
 
 At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (`ram_size`), the time after which the system will be killed in case of a dead loop, screen resolution(`window_w` and `window_h`), as well as the path to the file system of VM.
 
+### TODO:
+
+- [ ] Module system of devices
+
+- [ ] VRAM and textures (in progress)
+
+- [ ] Networking
+
+- [ ] In the distant future: assembler, emulating CPU, RAM, mini C-lang
+
 ### API
 
 `gpu` - an interface for drawing graphics on the screen
