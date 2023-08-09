@@ -14,6 +14,7 @@ local nm = img.normalize(min,5)
 nm = img.resize(nm, 25)
 
 res, ptr = gpu.storetexture(img.toraw(nm))
+if not res then printt(ptr .. "\n") return end
 local sw,sh = #nm, #nm[1]
 nm = nil
 collectgarbage()
@@ -29,5 +30,14 @@ for w=1,#boba do
   end
 end
 
+gpu.freetexture(ptr)
+
+local oldx,oldy = getcursor()
+setcursor(1,1)
+drawchar('%', nil, nil, nil, 1, 1)
+setcursor(oldx,oldy)
+
+res,ptr = gpu.copytexture(1,1,100,100)
+gpu.drawtexture(ptr,600,100,100,100)
 gpu.freetexture(ptr)
 

@@ -26,7 +26,8 @@ static uint32_t currentColor;
 static uint64_t currentTimeout;
 static uint64_t KILL_TIMEOUT = 10*1000; // 10 seconds
 static uint32_t CPU_HZ = 10;
-static int MAX_SIZE = 1; // RAM in MiB
+static uint32_t VRAM_SIZE = 1; // VRAM in KiB
+static int RAM_SIZE = 1; // RAM in MiB
 static bool lowMemory = false;
 static SDL_Event event;
 static Queue_t event_queue;
@@ -49,19 +50,19 @@ l_alloc(void* ud, void* ptr, size_t osize, size_t nsize)
   {
     free(ptr);
     *used -= osize;
-    if (*used < (uint64_t)1024*1024*MAX_SIZE-512)
+    if (*used < (uint64_t)RAM_SIZE-512)
       lowMemory = false;
     return NULL;
   }
   else
   {
-    if (*used + (nsize - osize) > (uint64_t)1024*1024*MAX_SIZE)
+    if (*used + (nsize - osize) > (uint64_t)RAM_SIZE)
     {
       puts("[critical] Memory out!");
       lua_yield(L, 0);
       //exit(1);
     }
-    if (*used + (nsize - osize) > (uint64_t)1024*1024*MAX_SIZE-512)
+    if (*used + (nsize - osize) > (uint64_t)RAM_SIZE-512)
     {
       if (lowMemory == false)
       {
@@ -74,7 +75,7 @@ l_alloc(void* ud, void* ptr, size_t osize, size_t nsize)
     if (ptr)
       *used += (nsize - osize);
 
-    if (*used < (uint64_t)1024*1024*MAX_SIZE-512)
+    if (*used < (uint64_t)RAM_SIZE-512)
       lowMemory = false;
 
     return ptr;
@@ -159,13 +160,55 @@ l_Hook(lua_State* L, lua_Debug* d)
   }
 }
 
+static bool
+FindFreeSpace(size_t array_size, size_t* index)
+{
+  size_t startIndex = 0;
+
+  while (true)
+  {
+    if (pVram[startIndex] == 0)
+    {
+      bool success = true;
+      for (size_t i = 1; i <= array_size; i++)
+      {
+        if (pVram[startIndex+i] != 0)
+        {
+          success = false;
+        }
+      }
+      if (success)
+      {
+        *index = startIndex;
+        return true;
+      }
+      else
+      {
+        if (pVram[startIndex]+1 > VRAM_SIZE)
+        {
+          return false;
+        }
+        startIndex = pVram[startIndex]+1;
+      }
+    }
+    else
+    {
+      if (pVram[startIndex]+1 > VRAM_SIZE)
+      {
+        return false;
+      }
+      startIndex = pVram[startIndex]+1;
+    }
+  }
+}
+
 // -------------- function -------------- //
 
 // Computer //
 static int
 lf_CompGetTotal(lua_State* L)
 {
-  lua_pushnumber(L, 1024*1024*MAX_SIZE);
+  lua_pushnumber(L, RAM_SIZE);
   return 1;
 }
 
@@ -300,48 +343,17 @@ lf_GpuStoreTexture(lua_State* L)
 {
   if (lua_istable(L, 1))
   {
-    int startIndex = 0;
-    int array_size = lua_rawlen(L, 1);
+    size_t array_size = lua_rawlen(L, 1);
 
-    while (true)
+    size_t startIndex;
+    if (!FindFreeSpace(array_size, &startIndex))
     {
-      if (pVram[startIndex] == 0)
-      {
-        bool success = true;
-        for (int i = 1; i <= array_size; i++)
-        {
-          if (pVram[startIndex+i] != 0)
-          {
-            success = false;
-          }
-        }
-        if (success)
-          break;
-        else
-        {
-          if (pVram[startIndex]+1 > 1024*32)
-          {
-            lua_pushboolean(L, false);
-            lua_pushstring(L, "VRAM is full");
-            return 2;
-          }
-          startIndex = pVram[startIndex]+1;
-        }
-      }
-      else
-      {
-        if (pVram[startIndex]+1 > 1024*32)
-        {
-          lua_pushboolean(L, false);
-          lua_pushstring(L, "VRAM is full");
-          return 2;
-        }
-        startIndex = pVram[startIndex]+1;
-      }
+      lua_pushboolean(L, false);
+      lua_pushstring(L, "VRAM is full");
+      return 2;
     }
 
-
-    for (int i = 1; i <= array_size; ++i)
+    for (size_t i = 1; i <= array_size; ++i)
     {
       lua_pushinteger(L, i);
       lua_gettable(L, 1);
@@ -474,6 +486,74 @@ lf_GpuDrawTexture(lua_State* L)
       count++;
     }
   }
+  lua_pushboolean(L, true);
+  return 1;
+}
+
+static int
+lf_GpuCopyTexture(lua_State* L)
+{
+  lua_Number x = (luaL_checknumber(L, 1)-1);
+  lua_Number y = (luaL_checknumber(L, 2)-1);
+  lua_Number w = luaL_checknumber(L, 3);
+  lua_Number h = luaL_checknumber(L, 4);
+
+  size_t all = w * h;
+  size_t startIndex;
+  if (!FindFreeSpace(all, &startIndex))
+  {
+    lua_pushboolean(L, false);
+    lua_pushstring(L, "VRAM is full");
+    return 2;
+  }
+
+  size_t index = 1;
+  for(size_t iy = y; iy < y+h; iy++)
+  {
+    for (size_t ix = x; ix < x+w; ix++)
+    {
+      pVram[startIndex+index] = dt_GetPixel(pCan, ix, iy);
+      index++;
+    }
+  }
+  pVram[startIndex] = all;
+  lua_pushboolean(L, true);
+  lua_pushnumber(L, startIndex+1);
+  return 2;
+}
+
+static int
+lf_GpuRawGet(lua_State* L)
+{
+  lua_Number addr = luaL_checknumber(L, 1);
+  addr--;
+  if (addr < 0 || addr > VRAM_SIZE)
+  {
+    lua_pushboolean(L, false);
+    lua_pushstring(L, "invalid address");
+    return 2;
+  }
+
+  lua_pushboolean(L, true);
+  lua_pushnumber(L, pVram[(int)addr]);
+  return 2;
+}
+
+static int
+lf_GpuRawSet(lua_State* L)
+{
+  lua_Number addr = luaL_checknumber(L, 1);
+  lua_Number val = luaL_checknumber(L, 2);
+  addr--;
+  if (addr < 0 || addr > VRAM_SIZE)
+  {
+    lua_pushboolean(L, false);
+    lua_pushstring(L, "invalid address");
+    return 2;
+  }
+
+  pVram[(int)addr] = (uint32_t)val;
+
   lua_pushboolean(L, true);
   return 1;
 }
@@ -843,6 +923,9 @@ static const luaL_Reg gpulib[] =
   {"storetexture", lf_GpuStoreTexture},
   {"freetexture", lf_GpuFreeTexture},
   {"drawtexture", lf_GpuDrawTexture},
+  {"copytexture", lf_GpuCopyTexture},
+  {"rawget", lf_GpuRawGet},
+  {"rawset", lf_GpuRawSet},
   {NULL, NULL}
 };
 
@@ -993,11 +1076,24 @@ lua_InitLua(/*lua_State* NL*/)
     int ival = atoi(val);
     if (ival >= 0)
     {
-      MAX_SIZE = ival;
+      RAM_SIZE = 1024*1024*ival;
     }
     else
     {
-      MAX_SIZE = 1;
+      RAM_SIZE = 1024*1024*1;
+    }
+  }
+  val = cfg_GetValue("vram_size");
+  if (val != NULL)
+  {
+    int ival = atoi(val);
+    if (ival >= 0)
+    {
+      VRAM_SIZE = (1024*1024*ival)/4;
+    }
+    else
+    {
+      VRAM_SIZE = (1024*1024*1)/4;
     }
   }
   val = cfg_GetValue("kill_timeout");
@@ -1032,7 +1128,7 @@ lua_InitLua(/*lua_State* NL*/)
   }
 
   pUd = (uint64_t*)malloc(sizeof(uint64_t));
-  pVram = (uint32_t*)calloc(1024*32, sizeof(uint32_t));
+  pVram = (uint32_t*)calloc(VRAM_SIZE, sizeof(uint32_t));
   if (pUd == NULL || pVram == NULL)
   {
     fprintf(stderr, "[E] Error in allocating memory\n");
