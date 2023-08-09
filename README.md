@@ -82,7 +82,15 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 
 - [ ] In the distant future: assembler, emulating CPU, RAM, mini C-lang
 
+### Special Thanks
+
+- [**FelixFromDiscord**](https://github.com/FelixFromDiscord)
+
+- [**Eldyj**](https://github.com/Eldyj)
+
 ### API
+
+**Note: if bool is returned as false, then in some cases the second return value will be the error text**
 
 `gpu` - an interface for drawing graphics on the screen
 
@@ -101,6 +109,18 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 `gpu.update() -> nil` - update screen
 
 `gpu.getresolution() -> number, number` - returns the screen resolution
+
+`gpu.storetexture(table texture) -> bool, number` - returns true if successful and the pointer of stored texture
+
+ `gpu.freetexture(number pointer) -> bool` - frees video memory and returns true if successful
+
+ `gpu.drawtexture(number pointer, number x, number y, number w, number h) -> bool` - draws a texture on the screen at the specified coordinates and the specified size, returns true if successful
+
+ `gpu.copytexture(number x, number y, number w, number h) -> bool, number` - copies a piece of the screen to video memory and returns true if successful and a pointer
+
+ `gpu.rawget(number index) -> bool, number` - returns true if successful and the number stored in video memory at the specified address
+
+ `gpu.rawset(number index, number value) -> bool` - sets a certain number to the video memory at the specified address and returns a success code
 
 ---
 
