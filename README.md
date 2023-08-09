@@ -80,6 +80,8 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 
 - [ ] Networking
 
+- [ ] Rewrite most functions by adding bool and error text
+
 - [ ] In the distant future: assembler, emulating CPU, RAM, mini C-lang
 
 ### Special Thanks
