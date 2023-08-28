@@ -72,15 +72,15 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 
 ### TODO:
 
-- [ ] Generate default config *(in progress)*
+- [x] Generate default config
 
 - [x] VRAM and textures
 
-- [ ] Networking
+- [ ] Networking *(in progress)*
 
 - [ ] Rewrite most functions by adding bool and error text
 
-- [ ] In the distant future: assembler, emulating CPU, RAM, mini C-lang
+- [ ] 
 
 ### Special Thanks
 
