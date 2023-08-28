@@ -84,7 +84,7 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 
 ### Special Thanks
 
-- [**FelixFromDiscord**](https://github.com/FelixFromDiscord)
+- [**iriscent**](https://github.com/notiriscent)
 
 - [**Eldyj**](https://github.com/Eldyj)
 
