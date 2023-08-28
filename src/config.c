@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include <unistd.h>
 #include "config.h"
 #include "utils.h"
 
@@ -23,11 +24,23 @@ cfg_GetValue(const char* key)
 int
 cfg_ReadConfig(const char* path)
 {
-  FILE* f = fopen(path, "r");
+  FILE* f;
+  if(access(path, F_OK) != 0)
+  {
+    f = fopen(path, "w");
+    if (f == NULL)
+    {
+      fprintf(stderr, "Error while writing default config file.\n");
+      return 1;
+    }
+    fprintf(f, "# in MB\nram_size=8\n# in MB\nvram_size=1\n# in seconds\nkill_timeout=10\n# 0 - no delay. 1-∞\ncpu_clock=0\n\nroot_path=./FS\n\n# resolution\nwindow_w = 800\nwindow_h = 600\n");
+    fclose(f);
+  }
+  f = fopen(path, "r");
 
   if (f == NULL)
   {
-    puts("Error while opening config file.");
+    fprintf(stderr, "Error while opening config file.\n");
     return 1;
   }
 
