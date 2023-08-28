@@ -72,9 +72,7 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 
 ### TODO:
 
-- [ ] Module system of devices *(in progress)*
-
-- [ ] Generate default config
+- [ ] Generate default config *(in progress)*
 
 - [x] VRAM and textures
 
