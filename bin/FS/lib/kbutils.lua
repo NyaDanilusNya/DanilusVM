@@ -1,4 +1,4 @@
-kbutils = {}
+local kbutils = {}
 
 kbutils.leters = {
   [" "]={
