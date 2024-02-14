@@ -30,14 +30,14 @@ clang
 
 If you are using a Debian family operating system, you can use this command:
 
-```shell
-$ sudo apt install make libsdl2-2.0-0 libsdl2-dev liblua5.2-0 liblua5.2-dev clang
+```
+# apt install make libsdl2-2.0-0 libsdl2-dev liblua5.2-0 liblua5.2-dev clang
 ```
 
 If you are using an Arch family operating system, you can use this command:
 
-```shell
-$ sudo pacman -S make sdl2 lua52 clang
+```
+# pacman -S make sdl2 lua52 clang
 ```
 
 ### Build 'n' Run
@@ -79,8 +79,6 @@ At the moment you can configure the CPU speed (`cpu_clock`), the amount of RAM (
 - [ ] Networking *(in progress)*
 
 - [ ] Rewrite most functions by adding bool and error text
-
-- [ ] 
 
 ### Special Thanks
 
